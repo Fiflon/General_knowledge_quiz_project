@@ -2,6 +2,8 @@
 #include "player.h"
 #include "game_logic.h"
 #include "nickname_handler.h"
+#include "questions.h"
+
 #include <iostream>
 #include <unordered_map>
 #include <vector>
@@ -65,6 +67,8 @@ int main()
                 if (players[events[n].data.fd].nickname.empty())
                 {
                     players[events[n].data.fd].nickname = handle_new_client_nickname(events[n].data.fd, players, &active_players, epoll_fd);
+                    std::vector<Question> questions = pick_questions();
+                    std::cout << questions[0].content << std::endl;
                 }
                 else
                 {
