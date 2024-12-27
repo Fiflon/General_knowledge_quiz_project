@@ -10,11 +10,11 @@ std::vector<std::string> questions = {
     "Question 4", "Question 5", "Question 6",
     "Question 7", "Question 8", "Question 9", "Question 10"};
 
-bool game_in_progress = false;
+// bool game_in_progress = false;
 
-void start_game(std::unordered_map<int, Player> &players)
+void start_game(std::unordered_map<int, Player> &players, bool *game_in_progress)
 {
-    game_in_progress = true;
+    *game_in_progress = true;
     std::string start_msg = "Game is starting now!\n";
     for (auto &p : players)
     {
@@ -36,5 +36,5 @@ void start_game(std::unordered_map<int, Player> &players)
     {
         send(p.second.fd, end_msg.c_str(), end_msg.size(), 0);
     }
-    game_in_progress = false;
+    *game_in_progress = false;
 }

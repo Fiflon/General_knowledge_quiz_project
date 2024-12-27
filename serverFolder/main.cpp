@@ -13,6 +13,11 @@
 
 std::unordered_map<int, Player> players;
 int active_players = 0;
+bool countdown_started = false;
+bool game_in_progress = false;
+time_t start_time = 0;
+
+bool new_client_connected = false;
 
 int main()
 {
@@ -24,7 +29,22 @@ int main()
 
     while (true)
     {
-        int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+        if (active_players < 3 && countdown_started)
+        {
+            countdown_started = false;
+            start_time = 0;
+            std::cout << "Not enough players to start the game. Waiting for more players..." << std::endl;
+        }
+
+        if (time(0) >= start_time && countdown_started && active_players >= 3)
+        {
+            countdown_started = false;
+            game_in_progress = true;
+            std::cout << "Game is starting now!" << std::endl;
+            // start_game(players);
+        }
+
+        int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, 500);
         if (nfds == -1)
         {
             perror("epoll_wait");
@@ -38,6 +58,7 @@ int main()
             if (events[n].data.fd == server_fd)
             {
                 handle_new_connection(epoll_fd, server_fd, players);
+                new_client_connected = true;
             }
             else
             {
@@ -47,11 +68,24 @@ int main()
                 }
                 else
                 {
-
                     handle_client_message(epoll_fd, events[n].data.fd, players, &active_players);
                 }
             }
         }
+
+        if (active_players >= 3 && !countdown_started && !game_in_progress)
+        {
+            countdown_started = true;
+            std::cout << "Game will start in 20 seconds!" << std::endl;
+            time_t now = time(0);
+            start_time = now + 20;
+        }
+    }
+
+    if (new_client_connected)
+    {
+        new_client_connected = false;
+        std::cout << "New client connected!" << std::endl;
     }
 
     close(server_fd);

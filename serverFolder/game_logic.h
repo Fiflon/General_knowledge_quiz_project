@@ -5,6 +5,6 @@
 #include <string>
 #include "player.h"
 
-void start_game(std::unordered_map<int, Player> &players);
+void start_game(std::unordered_map<int, Player> &players, bool *game_in_progress);
 
 #endif
