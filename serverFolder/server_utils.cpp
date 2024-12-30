@@ -148,31 +148,11 @@ bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, 
     shutdown(client_fd, SHUT_RDWR);
 
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
-    players.erase(client_fd);
-    (*active_players)--;
+    if (players[client_fd].nickname != "" && players.erase(client_fd) != 0)
+    {
+        (*active_players)--;
+    };
+
     std::cout << "Active players: " << *active_players << std::endl;
-    return true;
-}
-
-bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, Player> &players, int epoll_fd)
-{
-    if (n > 0)
-    {
-        return false;
-    }
-
-    if (n == 0)
-    {
-        std::cout << "Client disconnected: " << client_fd << std::endl;
-    }
-    else
-    {
-        perror("read");
-    }
-    close(client_fd);
-    shutdown(client_fd, SHUT_RDWR);
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
-    players.erase(client_fd);
-
     return true;
 }

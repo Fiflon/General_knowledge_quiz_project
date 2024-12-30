@@ -22,7 +22,7 @@ std::string handle_new_client_nickname(int client_fd, std::unordered_map<int, Pl
 {
     char buffer[512];
     int n = read(client_fd, buffer, sizeof(buffer) - 1);
-    if (client_disconnected_or_error(n, client_fd, players, epoll_fd))
+    if (client_disconnected_or_error(n, client_fd, players, epoll_fd, active_players))
     {
         return "";
     }
