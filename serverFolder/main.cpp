@@ -10,6 +10,10 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <string.h>
+#include <locale>
+#include <cstring>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #define MAX_EVENTS 10
 #define PORT 9867
@@ -22,13 +26,65 @@ time_t start_time = 0;
 
 bool new_client_connected = false;
 
+void sendString(int socket, const std::string &message)
+{
+    int sizeOfMsg = message.size();
+    send(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
+    send(socket, message.c_str(), sizeOfMsg, 0);
+}
+
+std::string recvString(int socket, std::unordered_map<int, Player> &players, int epoll_fd, int *active_players)
+{
+    int sizeOfMsg;
+    std::cout << "1" << std::endl;
+    int n = recv(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
+    if (n <= 0)
+    {
+        if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
+        {
+            return "-100";
+        }
+        std::cerr << "Error receiving size of message" << std::endl;
+        return "";
+    }
+
+    if (sizeOfMsg <= 0 || sizeOfMsg > 1024) // Dodajemy dodatkowe sprawdzenie rozmiaru wiadomości
+    {
+        std::cerr << "Invalid message size: " << sizeOfMsg << std::endl;
+        return "";
+    }
+
+    char buffer[sizeOfMsg + 1];
+    std::cout << "2" << std::endl;
+
+    n = recv(socket, buffer, sizeOfMsg, 0);
+    if (n <= 0)
+    {
+        if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
+        {
+            return "-100";
+        }
+        std::cerr << "Error receiving message" << std::endl;
+        return "";
+    }
+
+    if (n != sizeOfMsg)
+    {
+        std::cerr << "Error: n != sizeOfMsg" << std::endl;
+        return "";
+    }
+
+    buffer[sizeOfMsg] = '\0';
+    return std::string(buffer);
+}
+
 int main()
 {
 
     int server_fd = create_server_socket(PORT);
     int epoll_fd = setup_epoll(server_fd);
 
-    char rest_buffer[1024] = {0};
+    std::string rest_buffer = "";
     int rest_n = 0;
 
     struct epoll_event events[MAX_EVENTS];
@@ -68,21 +124,25 @@ int main()
             }
             else
             {
-                char buffer[1024] = {0};
+                /*                 char buffer[1024] = {0};
 
-                int bytes_read = read(events[n].data.fd, buffer, sizeof(buffer) - 1);
+                                int bytes_read = read(events[n].data.fd, buffer, sizeof(buffer) - 1);
 
-                if (client_disconnected_or_error(bytes_read, events[n].data.fd, players, epoll_fd, &active_players))
-                {
-                    continue;
-                }
+                                if (client_disconnected_or_error(bytes_read, events[n].data.fd, players, epoll_fd, &active_players))
+                                {
+                                    continue;
+                                }
 
-                buffer[bytes_read] = '\0';
-                std::string full_message = std::string(rest_buffer, rest_n) + std::string(buffer, bytes_read);
+                                buffer[bytes_read] = '\0';
+                 */
+                std::string recived_message = recvString(events[n].data.fd, players, epoll_fd, &active_players);
+                // std::string full_message = std::string(rest_buffer, rest_n) + std::string(buffer, bytes_read);
 
-                std::cout << "Full message: " << full_message << std::endl;
+                std::cout << "Full message: " << recived_message << std::endl;
 
-                // std::string response = handle_client_message
+                std::string response = handle_client_message(events[n].data.fd, players, &active_players, rest_buffer, rest_n, recived_message);
+
+                // std::cout << rest_buffer << std::endl;
 
                 /*                 if (players.find(events[n].data.fd) != players.end())
                 {

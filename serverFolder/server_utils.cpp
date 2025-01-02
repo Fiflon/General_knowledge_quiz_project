@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <iostream>
 #include <cstring>
+#include <string>
+#include <vector>
 
 void set_nonblocking(int sockfd)
 { // na 99 procent nie bedziemy uzywac
@@ -110,7 +112,7 @@ void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, 
     send(client_fd, welcome_msg.c_str(), welcome_msg.size(), 0);
 }
 
-void handle_client_message(int epoll_fd, int client_fd, std::unordered_map<int, Player> &players, int *active_players)
+/* void handle_client_message(int epoll_fd, int client_fd, std::unordered_map<int, Player> &players, int *active_players)
 {
     char buffer[512];
     int n = read(client_fd, buffer, sizeof(buffer) - 1);
@@ -127,6 +129,90 @@ void handle_client_message(int epoll_fd, int client_fd, std::unordered_map<int, 
     std::cout << "Message from " << player.nickname << ": " << message << std::endl;
     std::string response = "Server received: " + message;
     send(client_fd, response.c_str(), response.size(), 0);
+}
+ */
+
+std::vector<size_t> find_occurrences(const std::string &str, char character, size_t count)
+{
+    std::vector<size_t> indices;
+    size_t pos = 0;
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        pos = str.find(character, pos);
+        if (pos == std::string::npos)
+        {
+            break;
+        }
+        indices.push_back(pos);
+        ++pos;
+    }
+
+    return indices;
+}
+
+std::vector<std::string> splitString(const char delimiter, const std::string &input, int wordsToFind, std::string &overflow)
+{
+    std::vector<std::string> result;
+    std::string currentWord;
+    int count = 0;
+
+    for (size_t i = 0; i < input.size(); ++i)
+    {
+        char c = input[i];
+        if (c == delimiter)
+        {
+            if (!currentWord.empty())
+            {
+                result.push_back(currentWord);
+                currentWord.clear();
+                count++;
+
+                if (count == wordsToFind)
+                {
+                    // overflow = input.substr(i + 1); // w razie potrzeby odkomentować
+                    // rest_n = input.size() - i - 1; // zastanow sie nad tym czy potrzebujemy overflow trzymac
+                    return result;
+                }
+            }
+        }
+        else
+        {
+            currentWord += c;
+        }
+    }
+
+    if (!currentWord.empty())
+    {
+        result.push_back(currentWord);
+    }
+
+    overflow.clear();
+    // rest_n = 0;
+    return result;
+}
+std::string handle_client_message(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string &rest_buffer, int &rest_n, std::string &full_message)
+{
+    std::vector<std::string> words = splitString('|', full_message, 3, rest_buffer);
+
+    std::string type = words[0];
+
+    if (type == "nic")
+    {
+        std::cout << "Nic" << std::endl;
+    }
+    else
+    {
+        std::cout << "not Nic" << std::endl;
+    }
+
+    /*     for (const auto &word : words)
+        {
+            std::cout << "Word: " << word << std::endl;
+            send(client_fd, word.c_str(), word.size(), 0);
+        }
+     */
+    return "100";
 }
 
 bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, Player> &players, int epoll_fd, int *active_players)
