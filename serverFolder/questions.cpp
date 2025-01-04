@@ -174,7 +174,7 @@ std::vector<Question> pick_questions()
     std::mt19937 g(rd());
     std::uniform_int_distribution<> dis(0, 19);
 
-    while (selected_indices.size() < 10)
+    while (selected_indices.size() < 2)
     {
         int index = dis(g);
         if (selected_indices.find(index) == selected_indices.end())
