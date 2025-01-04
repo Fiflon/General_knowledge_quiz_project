@@ -25,12 +25,22 @@ std::string handle_new_client_nickname(int client_fd, std::unordered_map<int, Pl
 
     if (!is_nickname_unique(nickname, players))
     {
-        std::string response = "Nickname already taken. Please enter a different nickname:\n";
-        send(client_fd, response.c_str(), response.size(), 0);
-        return "";
+
+        return "nic|1|";
     }
+    if (nickname.size() > 20)
+    {
+
+        return "nic|2|";
+    }
+    if (!players[client_fd].nickname.empty())
+    {
+        return "nic|3|";
+    }
+
+    players[client_fd].nickname = nickname;
     (*active_players)++;
     std::cout << "New player connected: " << nickname << std::endl;
     std::cout << "Active players: " << *active_players << std::endl;
-    return nickname;
+    return "nic|0|";
 }

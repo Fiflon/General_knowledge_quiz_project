@@ -3,6 +3,7 @@
 #include "game_logic.h"
 #include "nickname_handler.h"
 #include "questions.h"
+#include "game.h"
 
 #include <iostream>
 #include <unordered_map>
@@ -21,61 +22,92 @@
 std::unordered_map<int, Player> players;
 int active_players = 0;
 bool countdown_started = false;
-bool game_in_progress = false;
+// bool game_in_progress = false;
 time_t start_time = 0;
 
 bool new_client_connected = false;
 
-void sendString(int socket, const std::string &message)
+Game game;
+
+int send_string(int socket, const std::string &message)
 {
     int sizeOfMsg = message.size();
-    send(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
-    send(socket, message.c_str(), sizeOfMsg, 0);
+    int err = send(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
+    if (err == -1)
+    {
+        std::cout << "Error sending message size" << std::endl;
+        return -1;
+    }
+    else if (err != sizeof(sizeOfMsg))
+    {
+        std::cout << "Wrong amount of data send" << std::endl;
+        return -2;
+    }
+
+    err = send(socket, message.c_str(), sizeOfMsg, 0);
+    if (err == -1)
+    {
+        std::cout << "Error sending message" << std::endl;
+        return -1;
+    }
+    else if (err != sizeOfMsg)
+    {
+        std::cout << "Wrong amount of message data send" << std::endl;
+        return -2;
+    }
+
+    return 0;
 }
 
-std::string recvString(int socket, std::unordered_map<int, Player> &players, int epoll_fd, int *active_players)
+std::string recv_string(int socket, std::unordered_map<int, Player> &players, int epoll_fd, int *active_players)
 {
     int sizeOfMsg;
-    std::cout << "1" << std::endl;
     int n = recv(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
-    if (n <= 0)
+
+    if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
     {
-        if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
-        {
-            return "-100";
-        }
-        std::cerr << "Error receiving size of message" << std::endl;
-        return "";
+        return "-100";
     }
 
-    if (sizeOfMsg <= 0 || sizeOfMsg > 1024) // Dodajemy dodatkowe sprawdzenie rozmiaru wiadomości
-    {
-        std::cerr << "Invalid message size: " << sizeOfMsg << std::endl;
-        return "";
-    }
+    // moze dodac sprawdznie wielkosci
 
     char buffer[sizeOfMsg + 1];
-    std::cout << "2" << std::endl;
 
     n = recv(socket, buffer, sizeOfMsg, 0);
-    if (n <= 0)
+
+    if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
     {
-        if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
-        {
-            return "-100";
-        }
-        std::cerr << "Error receiving message" << std::endl;
-        return "";
+        return "-100";
     }
 
     if (n != sizeOfMsg)
     {
         std::cerr << "Error: n != sizeOfMsg" << std::endl;
-        return "";
+        return "-100";
     }
 
     buffer[sizeOfMsg] = '\0';
     return std::string(buffer);
+}
+
+int send_message_to_all(const std::unordered_map<int, Player> &players, const std::string &message)
+{
+    std::cout << "Sending message to all players: " << message << std::endl;
+    for (const auto &p : players)
+    {
+        std::cout << "Sending message to player: " << p.second.nickname << std::endl;
+
+        if (send_string(p.second.fd, message) != 0)
+        {
+            std::cout << "Error sending message to player: " << p.second.nickname << std::endl;
+            return -1;
+        }
+        else
+        {
+            std::cout << "Message sent to player: " << p.second.nickname << std::endl;
+        }
+    }
+    return 0;
 }
 
 int main()
@@ -83,9 +115,6 @@ int main()
 
     int server_fd = create_server_socket(PORT);
     int epoll_fd = setup_epoll(server_fd);
-
-    std::string rest_buffer = "";
-    int rest_n = 0;
 
     struct epoll_event events[MAX_EVENTS];
 
@@ -100,10 +129,12 @@ int main()
 
         if (time(0) >= start_time && countdown_started && active_players >= 3)
         {
+            send_message_to_all(players, "xxx|Game is starting now!|");
             countdown_started = false;
-            game_in_progress = true;
-            std::cout << "Game is starting now!" << std::endl;
-            // start_game(players);
+            // game_in_progress = true;
+            game.start_game();
+            game.next_question();
+            send_message_to_all(players, game.get_current_question_parsed());
         }
 
         int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, 500);
@@ -124,42 +155,45 @@ int main()
             }
             else
             {
-                /*                 char buffer[1024] = {0};
 
-                                int bytes_read = read(events[n].data.fd, buffer, sizeof(buffer) - 1);
+                std::string recived_message = recv_string(events[n].data.fd, players, epoll_fd, &active_players);
 
-                                if (client_disconnected_or_error(bytes_read, events[n].data.fd, players, epoll_fd, &active_players))
-                                {
-                                    continue;
-                                }
-
-                                buffer[bytes_read] = '\0';
-                 */
-                std::string recived_message = recvString(events[n].data.fd, players, epoll_fd, &active_players);
-                // std::string full_message = std::string(rest_buffer, rest_n) + std::string(buffer, bytes_read);
+                if (recived_message == "-100")
+                {
+                    continue;
+                }
 
                 std::cout << "Full message: " << recived_message << std::endl;
 
-                std::string response = handle_client_message(events[n].data.fd, players, &active_players, rest_buffer, rest_n, recived_message);
-
-                // std::cout << rest_buffer << std::endl;
-
-                /*                 if (players.find(events[n].data.fd) != players.end())
-                {
-                    if (players[events[n].data.fd].nickname.empty())
-                    {
-                        players[events[n].data.fd].nickname = handle_new_client_nickname(events[n].data.fd, players, &active_players, epoll_fd);
-                        std::vector<Question> questions = pick_questions();
-                        std::cout << questions[0].content << std::endl;
-                    }
-                    else
-                    {
-                        handle_client_message(epoll_fd, events[n].data.fd, players, &active_players);
-                    }
-                } */
+                std::string response = handle_client_message(events[n].data.fd, players, &active_players, recived_message);
+                std::cout << "Response: " << response << std::endl;
             }
         }
-        if (active_players >= 3 && !countdown_started && !game_in_progress)
+
+        /*         if (game.get_current_question_number() == 2)
+                {
+                    game.end_game(); // dodac obsluge ilosci pytan w grze
+                } */
+
+        std::cout << game.is_game_in_progress() << std::endl;
+        if (game.is_game_in_progress())
+        {
+            if (game.get_time_left() <= 0)
+            {
+                if (game.next_question() == -1)
+                {
+                    std::cout << "Game ended!" << std::endl;
+                    send_message_to_all(players, "xxx|Game ended!|");
+                    // game_in_progress = false;
+                }
+                else
+                {
+                    send_message_to_all(players, game.get_current_question_parsed());
+                }
+            }
+        }
+
+        if (active_players >= 3 && !countdown_started && !game.is_game_in_progress())
         {
             countdown_started = true;
             std::cout << "Game will start in 20 seconds!" << std::endl;

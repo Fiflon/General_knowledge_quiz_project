@@ -13,7 +13,7 @@ void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, 
 std::vector<size_t> find_occurrences(const std::string &str, char character, size_t count);
 std::vector<std::string> splitString(const char delimiter, const std::string &input, int wordsToFind, std::string &overflow);
 
-std::string handle_client_message(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string &rest_buffer, int &rest_n, std::string &full_message);
+std::string handle_client_message(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string &full_message);
 
 bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, Player> &players, int epoll_fd, int *active_players);
 #endif
