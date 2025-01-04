@@ -36,8 +36,6 @@ int create_server_socket(int port)
         exit(EXIT_FAILURE);
     }
 
-    // set_nonblocking(server_fd);
-
     struct sockaddr_in server_addr = {};
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
@@ -110,29 +108,7 @@ void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, 
     }
 
     players[client_fd] = {client_fd, "", 0};
-    std::string welcome_msg = "Welcome! Please enter your nickname:\n";
-    // send(client_fd, welcome_msg.c_str(), welcome_msg.size(), 0);
 }
-
-/* void handle_client_message(int epoll_fd, int client_fd, std::unordered_map<int, Player> &players, int *active_players)
-{
-    char buffer[512];
-    int n = read(client_fd, buffer, sizeof(buffer) - 1);
-    if (client_disconnected_or_error(n, client_fd, players, epoll_fd, active_players))
-    {
-        return;
-    }
-
-    buffer[n] = '\0';
-    std::string message(buffer);
-    Player &player = players[client_fd];
-
-    // Obsługa wiadomości gracza
-    std::cout << "Message from " << player.nickname << ": " << message << std::endl;
-    std::string response = "Server received: " + message;
-    send(client_fd, response.c_str(), response.size(), 0);
-}
- */
 
 std::vector<size_t> find_occurrences(const std::string &str, char character, size_t count)
 {

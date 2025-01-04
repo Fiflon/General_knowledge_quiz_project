@@ -22,7 +22,6 @@
 std::unordered_map<int, Player> players;
 int active_players = 0;
 bool countdown_started = false;
-// bool game_in_progress = false;
 time_t start_time = 0;
 
 bool new_client_connected = false;
@@ -131,7 +130,6 @@ int main()
         {
             send_message_to_all(players, "xxx|Game is starting now!|");
             countdown_started = false;
-            // game_in_progress = true;
             game.start_game();
             game.next_question();
             send_message_to_all(players, game.get_current_question_parsed());
@@ -170,12 +168,6 @@ int main()
             }
         }
 
-        /*         if (game.get_current_question_number() == 2)
-                {
-                    game.end_game(); // dodac obsluge ilosci pytan w grze
-                } */
-
-        std::cout << game.is_game_in_progress() << std::endl;
         if (game.is_game_in_progress())
         {
             if (game.get_time_left() <= 0)
@@ -184,7 +176,6 @@ int main()
                 {
                     std::cout << "Game ended!" << std::endl;
                     send_message_to_all(players, "xxx|Game ended!|");
-                    // game_in_progress = false;
                 }
                 else
                 {
