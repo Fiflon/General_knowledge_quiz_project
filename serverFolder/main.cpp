@@ -183,7 +183,6 @@ int main()
 
                 if (response.rfind("dis", 0) == 0)
                 {
-
                     send_message_to_all(players, response);
                     continue;
                 }
