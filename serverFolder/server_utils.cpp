@@ -1,6 +1,8 @@
 #include "server_utils.h"
 #include "player.h"
 #include "nickname_handler.h"
+#include "game.h"
+
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -35,8 +37,6 @@ int create_server_socket(int port)
         perror("socket");
         exit(EXIT_FAILURE);
     }
-
-    // set_nonblocking(server_fd);
 
     struct sockaddr_in server_addr = {};
     server_addr.sin_family = AF_INET;
@@ -110,29 +110,7 @@ void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, 
     }
 
     players[client_fd] = {client_fd, "", 0};
-    std::string welcome_msg = "Welcome! Please enter your nickname:\n";
-    // send(client_fd, welcome_msg.c_str(), welcome_msg.size(), 0);
 }
-
-/* void handle_client_message(int epoll_fd, int client_fd, std::unordered_map<int, Player> &players, int *active_players)
-{
-    char buffer[512];
-    int n = read(client_fd, buffer, sizeof(buffer) - 1);
-    if (client_disconnected_or_error(n, client_fd, players, epoll_fd, active_players))
-    {
-        return;
-    }
-
-    buffer[n] = '\0';
-    std::string message(buffer);
-    Player &player = players[client_fd];
-
-    // Obsługa wiadomości gracza
-    std::cout << "Message from " << player.nickname << ": " << message << std::endl;
-    std::string response = "Server received: " + message;
-    send(client_fd, response.c_str(), response.size(), 0);
-}
- */
 
 std::vector<size_t> find_occurrences(const std::string &str, char character, size_t count)
 {
@@ -192,7 +170,7 @@ std::vector<std::string> splitString(const char delimiter, const std::string &in
     // rest_n = 0;
     return result;
 }
-std::string handle_client_message(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string &full_message)
+std::string handle_client_message(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string &full_message, Game &game)
 {
     std::string type = full_message.substr(0, 3);
     std::string response = "-999";
@@ -204,9 +182,45 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
 
         response = handle_new_client_nickname(client_fd, players, active_players, words[1], 0);
     }
+    else if (type == "ans")
+    {
+        if (game.is_game_in_progress() == false)
+        {
+            std::cout << "Game not in progress" << std::endl;
+            response = "ans|3|";
+        }
+
+        time_t time_left_to_answer = game.get_time_left();
+        std::cout << "Answer" << std::endl;
+        std::vector<std::string> words = splitString('|', full_message, 2);
+        if (game.get_current_question_number() != std::stoi(words[1]))
+        {
+            std::cout << "Wrong question number" << std::endl;
+            response = "ans|2|";
+        }
+
+        else if (game.get_current_question_answer() != words[2])
+        {
+            std::cout << "Wrong answer" << std::endl;
+            response = "ans|1|";
+        }
+
+        else
+        {
+            std::cout << "Correct answer" << std::endl;
+            int points_to_add = time_left_to_answer ^ 2 / 2 * game.get_question_difficulty() / 3;
+            players[client_fd].points += points_to_add;
+            std::cout << "Current points: " << players[client_fd].points << players[client_fd].nickname << std::endl;
+            response = "ans|0|";
+        }
+    }
+    else if (type == "dis")
+    {
+        response = full_message;
+    }
     else
     {
-        std::cout << "not Nic" << std::endl;
+        std::cout << "unknown" << std::endl;
     }
 
     /*     for (const auto &word : words)
@@ -245,4 +259,24 @@ bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, 
 
     std::cout << "Active players: " << *active_players << std::endl;
     return true;
+}
+
+std::string get_parsed_ranking(std::unordered_map<int, Player> &players)
+{
+    std::vector<std::pair<std::string, int>> ranking;
+    for (const auto &p : players)
+    {
+        ranking.push_back({p.second.nickname, p.second.points});
+    }
+
+    std::sort(ranking.begin(), ranking.end(), [](const std::pair<std::string, int> &a, const std::pair<std::string, int> &b)
+              { return b.second < a.second; });
+
+    std::string parsed_ranking = "rank|";
+    for (const auto &r : ranking)
+    {
+        parsed_ranking += r.first + ":" + std::to_string(r.second) + "|";
+    }
+
+    return parsed_ranking;
 }

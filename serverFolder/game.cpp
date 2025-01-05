@@ -36,6 +36,7 @@ int Game::next_question()
     }
     else
     {
+        std::cout << "End of questions" << std::endl;
         end_game();
         return -1;
     }
@@ -69,4 +70,9 @@ time_t Game::get_time_left() const
 int Game::get_current_question_number()
 {
     return current_question_number;
+}
+
+int Game::get_question_difficulty() const
+{
+    return questions[current_question_index].difficulty;
 }

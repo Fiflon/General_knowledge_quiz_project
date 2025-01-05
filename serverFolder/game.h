@@ -19,6 +19,7 @@ public:
     std::string get_current_question_answer() const;
     int get_current_question_index();
     int get_current_question_number();
+    int get_question_difficulty() const;
     time_t get_time_left() const;
 
 private:
