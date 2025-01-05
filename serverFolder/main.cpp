@@ -62,10 +62,18 @@ std::string recv_string(int socket, std::unordered_map<int, Player> &players, in
 {
     int sizeOfMsg;
     int n = recv(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
+    std::string nick = players[socket].nickname;
 
     if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
     {
-        return "-100";
+        if (nick != "")
+        {
+            return "dis|" + nick + "|";
+        }
+        else
+        {
+            return "-100";
+        }
     }
 
     // moze dodac sprawdznie wielkosci
@@ -76,13 +84,20 @@ std::string recv_string(int socket, std::unordered_map<int, Player> &players, in
 
     if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
     {
-        return "-100";
+        if (nick != "")
+        {
+            return "dis|" + nick + "|";
+        }
+        else
+        {
+            return "-100";
+        }
     }
 
     if (n != sizeOfMsg)
     {
         std::cerr << "Error: n != sizeOfMsg" << std::endl;
-        return "-100";
+        return "-200";
     }
 
     buffer[sizeOfMsg] = '\0';
@@ -124,6 +139,7 @@ int main()
             countdown_started = false;
             start_time = 0;
             std::cout << "Not enough players to start the game. Waiting for more players..." << std::endl;
+            // wyslij gam
         }
 
         if (time(0) >= start_time && countdown_started && active_players >= 3)
@@ -156,31 +172,54 @@ int main()
 
                 std::string recived_message = recv_string(events[n].data.fd, players, epoll_fd, &active_players);
 
-                if (recived_message == "-100")
+                if (recived_message == "-100" || recived_message == "-200")
                 {
                     continue;
                 }
 
                 std::cout << "Full message: " << recived_message << std::endl;
 
-                std::string response = handle_client_message(events[n].data.fd, players, &active_players, recived_message);
+                std::string response = handle_client_message(events[n].data.fd, players, &active_players, recived_message, game);
+
+                if (response.rfind("dis", 0) == 0)
+                {
+
+                    send_message_to_all(players, response);
+                    continue;
+                }
+
+                if (response == "nic|0|" && game.is_game_in_progress())
+                {
+                    response = "nic|4|";
+                }
+                else if (response == "nic|0|" && countdown_started)
+                {
+                    response = "nic|5|";
+                }
                 std::cout << "Response: " << response << std::endl;
+
+                send_string(events[n].data.fd, response);
             }
         }
 
         if (game.is_game_in_progress())
         {
-            if (game.get_time_left() <= 0)
+            if (game.get_time_left() > 0)
             {
-                if (game.next_question() == -1)
-                {
-                    std::cout << "Game ended!" << std::endl;
-                    send_message_to_all(players, "xxx|Game ended!|");
-                }
-                else
-                {
-                    send_message_to_all(players, game.get_current_question_parsed());
-                }
+                continue;
+            }
+
+            std::string current_ranking = get_parsed_ranking(players);
+            send_message_to_all(players, current_ranking);
+
+            if (game.next_question() == -1)
+            {
+                std::cout << "Game ended!" << std::endl;
+                send_message_to_all(players, "xxx|Game ended!|");
+            }
+            else
+            {
+                send_message_to_all(players, game.get_current_question_parsed());
             }
         }
 
