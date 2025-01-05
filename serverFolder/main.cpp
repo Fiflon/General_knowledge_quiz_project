@@ -175,7 +175,7 @@ int main()
                     game.end_game(); // dodac obsluge ilosci pytan w grze
                 } */
 
-        std::cout << game.is_game_in_progress() << std::endl;
+        // std::cout << game.is_game_in_progress() << std::endl;
         if (game.is_game_in_progress())
         {
             if (game.get_time_left() <= 0)

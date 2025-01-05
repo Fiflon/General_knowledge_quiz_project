@@ -1,6 +1,7 @@
 import socket
 import threading
 import tkinter as tk
+import re
 from tkinter import scrolledtext, messagebox, simpledialog
 import struct
 
@@ -30,6 +31,16 @@ def recv_string(sock):
     # przesyl ponowny?
 
     return message_data
+
+
+def is_valid_nickname(nickname):
+    if not nickname:
+        return False
+    if len(nickname) > 20 or len(nickname) < 4:
+        return False
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]+$', nickname):
+        return False
+    return True
 
 
 class NetcatClientApp:
@@ -76,12 +87,13 @@ class NetcatClientApp:
             print(f"Łączenie z serwerem {host}:{port}")
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((host, port))
-
-            self.username = tk.simpledialog.askstring("Nickname", "Set your nickname:")
-            if not self.username:
-                messagebox.showerror("Error", "Nickname is required! (zamykam polaczenie poki co)")
-                self.client_socket.close()
-                return
+            
+            # Set the nickname with validation
+            while True:
+                self.username = tk.simpledialog.askstring("Nickname", "Set your nickname:")
+                if is_valid_nickname(self.username):
+                    break
+                messagebox.showwarning("Invalid Nickname", "Nickname must be 4-20 characters long and can only contain letters, numbers, and underscores. Please try again.")
 
             print(f"Tuż przed wysłaniem nicku nic|{self.username}|")
             send_string(self.client_socket, f"nic|{self.username}|")
