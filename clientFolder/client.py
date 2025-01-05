@@ -33,16 +33,6 @@ def recv_string(sock):
     return message_data
 
 
-def is_valid_nickname(nickname):
-    if not nickname:
-        return False
-    if len(nickname) > 20 or len(nickname) < 4:
-        return False
-    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]+$', nickname):
-        return False
-    return True
-
-
 class NetcatClientApp:
     def __init__(self, root):
         self.root = root
@@ -72,6 +62,30 @@ class NetcatClientApp:
         self.username = None
         self.client_socket = None
         self.receive_thread = None
+    
+    
+    def is_valid_nickname(self, nickname):
+        if not nickname:
+            return False
+        if len(nickname) > 20 or len(nickname) < 4:
+            return False
+        if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]+$', nickname):
+            return False
+        return True
+
+
+    def set_username(self):
+        while True:
+            new_username = tk.simpledialog.askstring("Nickname", "Set your nickname:")
+            if self.is_valid_nickname(new_username):
+                self.username = new_username
+                send_string(self.client_socket, f"nic|{self.username}|")
+                break
+            else:
+                messagebox.showerror("Invalid Username", "Your nickname is invalid. Requirements:\n"
+                                                        "- Not empty\n"
+                                                        "- Less than 20 and more than 4 characters\n"
+                                                        "- Without special characters and spaces")
 
 
     def connect_to_server(self):
@@ -88,12 +102,7 @@ class NetcatClientApp:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((host, port))
             
-            # Set the nickname with validation
-            while True:
-                self.username = tk.simpledialog.askstring("Nickname", "Set your nickname:")
-                if is_valid_nickname(self.username):
-                    break
-                messagebox.showwarning("Invalid Nickname", "Nickname must be 4-20 characters long and can only contain letters, numbers, and underscores. Please try again.")
+            self.set_username()
 
             print(f"Tuż przed wysłaniem nicku nic|{self.username}|")
             send_string(self.client_socket, f"nic|{self.username}|")
@@ -111,6 +120,27 @@ class NetcatClientApp:
             messagebox.showerror("Error", f"Failed to connect to the server: {e}")
 
 
+    def parse_message(self, message):
+        print(f"Parsujemy wiadomosc: {message}")
+        if message.startswith("nic|"):
+            status = message.split('|')[1]
+            print(f"Status: {status}")
+            if status == "0":
+                self.append_text(f"Username set: {self.username}")
+                self.root.title(f"Quiz - {self.username}")
+            else:
+                if status == "1":
+                    messagebox.showwarning("Invalid Username", "It's already taken.")
+                elif status == "2":
+                    messagebox.showwarning("Invalid Username", "It has special characters.")
+                elif status == "3":
+                    messagebox.showwarning("Invalid Username", "It's too long or too short.")
+
+                self.set_username()
+        else:
+            self.append_text(message)
+
+
     def receive_messages(self):
         try:
             print("Rozpoczęto odbieranie wiadomości.")
@@ -119,7 +149,8 @@ class NetcatClientApp:
                 if not message:
                     break
                 print(f"Otrzymana wiadomość: {message}")
-                self.append_text(message)
+                # self.append_text(message)
+                self.parse_message(message)
         except Exception as e:
             self.append_text(f"Error while receiving a message: {e}\n")
             print(f"Błąd podczas odbierania wiadomości: {e}")
