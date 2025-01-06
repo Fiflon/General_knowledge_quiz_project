@@ -136,6 +136,7 @@ int main()
 
     while (true)
     {
+
         if (active_players < 3 && countdown_started)
         {
             countdown_started = false;
@@ -204,6 +205,16 @@ int main()
             }
         }
 
+        if (active_players < 2 && game.is_game_in_progress())
+        {
+            game.end_game();
+            std::string current_ranking = get_parsed_ranking(players);
+            send_message_to_all(players, current_ranking);
+
+            reset_points(players);
+            send_message_to_all(players, "gam|4|");
+        }
+
         if (game.is_game_in_progress())
         {
             if (game.get_time_left() > 0)
@@ -217,6 +228,8 @@ int main()
             if (game.next_question() == -1)
             {
                 std::cout << "Game ended!" << std::endl;
+                reset_points(players);
+
                 send_message_to_all(players, "gam|3|");
             }
             else
