@@ -2,7 +2,7 @@ import socket
 import threading
 import tkinter as tk
 import re
-from tkinter import scrolledtext, messagebox, simpledialog
+from tkinter import scrolledtext, messagebox, simpledialog, ttk
 import struct
 
 
@@ -81,6 +81,23 @@ class NetcatClientApp:
             btn.grid(row=2 + i, column=0, columnspan=4, sticky='ew', pady=2)
             btn.config(state='disabled')
             self.answer_buttons.append(btn)
+
+        # Ranking
+        self.rank_frame = tk.Frame(root)
+        self.rank_frame.grid(row=6, column=0, columnspan=2, pady=10)
+
+        tk.Label(self.rank_frame, text="Ranking:").grid(row=0, column=0, sticky='w')
+
+        self.rank_tree = ttk.Treeview(self.rank_frame, columns=("Nickname", "Points"), show="headings")
+        self.rank_tree.grid(row=1, column=0, columnspan=2, pady=5)
+
+        self.rank_tree.heading("Nickname", text="Nickname")
+        self.rank_tree.heading("Points", text="Points")
+
+        self.rank_tree.column("Nickname", width=150)
+        self.rank_tree.column("Points", width=80)
+
+        
         self.username = None
         self.client_socket = None
         self.receive_thread = None
@@ -141,6 +158,20 @@ class NetcatClientApp:
                 btn.config(state='disabled')
 
 
+    def update_ranking(self, message):
+        parts = message.split('|')[1:] 
+
+        if parts[-1] == "":
+            parts = parts[:-1]
+
+        for row in self.rank_tree.get_children():
+            self.rank_tree.delete(row)
+
+        for part in parts:
+            nickname, points = part.split(':')
+            self.rank_tree.insert("", "end", values=(nickname, points))
+
+
     def connect_to_server(self):
         host = self.host_entry.get()
         port = self.port_entry.get()
@@ -184,7 +215,6 @@ class NetcatClientApp:
                     messagebox.showwarning("Invalid Username", "It has special characters.")
                 elif status == "3":
                     messagebox.showwarning("Invalid Username", "It's too long or too short.")
-
                 self.set_username()
         elif message.startswith("que|"):
             parts = message.split('|')
@@ -205,6 +235,8 @@ class NetcatClientApp:
                 self.append_text("Invalid question number!")
             elif status == '3':
                 self.append_text("The game is not currently running!")
+        elif message.startswith("rank|"):
+            self.update_ranking(message)
         else:
             self.append_text(message)
 
