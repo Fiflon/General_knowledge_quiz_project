@@ -104,10 +104,6 @@ class NetcatClientApp:
             
             self.set_username()
 
-            print(f"Tuż przed wysłaniem nicku nic|{self.username}|")
-            send_string(self.client_socket, f"nic|{self.username}|")
-            print(f"Nick wyslany")
-
             self.start_button.config(state='disabled')
             self.send_button.config(state='normal')
             self.append_text(f"Connected to the server {host}:{port}\n")
@@ -125,7 +121,7 @@ class NetcatClientApp:
         if message.startswith("nic|"):
             status = message.split('|')[1]
             print(f"Status: {status}")
-            if status == "0":
+            if status == "0" or status == "4" or status == "5":
                 self.append_text(f"Username set: {self.username}")
                 self.root.title(f"Quiz - {self.username}")
             else:
@@ -137,6 +133,7 @@ class NetcatClientApp:
                     messagebox.showwarning("Invalid Username", "It's too long or too short.")
 
                 self.set_username()
+
         else:
             self.append_text(message)
 
