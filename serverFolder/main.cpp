@@ -24,6 +24,8 @@ int active_players = 0;
 bool countdown_started = false;
 time_t start_time = 0;
 
+const int countdown_time = 20;
+
 bool new_client_connected = false;
 
 Game game;
@@ -134,17 +136,19 @@ int main()
 
     while (true)
     {
+
         if (active_players < 3 && countdown_started)
         {
             countdown_started = false;
             start_time = 0;
             std::cout << "Not enough players to start the game. Waiting for more players..." << std::endl;
             // wyslij gam
+            send_message_to_all(players, "gam|1|");
         }
 
         if (time(0) >= start_time && countdown_started && active_players >= 3)
         {
-            send_message_to_all(players, "xxx|Game is starting now!|");
+            send_message_to_all(players, "gam|0|");
             countdown_started = false;
             game.start_game();
             game.next_question();
@@ -169,7 +173,6 @@ int main()
             }
             else
             {
-
                 std::string recived_message = recv_string(events[n].data.fd, players, epoll_fd, &active_players);
 
                 if (recived_message == "-100" || recived_message == "-200")
@@ -201,6 +204,16 @@ int main()
             }
         }
 
+        if (active_players < 2 && game.is_game_in_progress())
+        {
+            game.end_game();
+            std::string current_ranking = get_parsed_ranking(players);
+            send_message_to_all(players, current_ranking);
+
+            reset_points(players);
+            send_message_to_all(players, "gam|4|");
+        }
+
         if (game.is_game_in_progress())
         {
             if (game.get_time_left() > 0)
@@ -214,7 +227,9 @@ int main()
             if (game.next_question() == -1)
             {
                 std::cout << "Game ended!" << std::endl;
-                send_message_to_all(players, "xxx|Game ended!|");
+                reset_points(players);
+
+                send_message_to_all(players, "gam|3|");
             }
             else
             {
@@ -225,9 +240,11 @@ int main()
         if (active_players >= 3 && !countdown_started && !game.is_game_in_progress())
         {
             countdown_started = true;
-            std::cout << "Game will start in 20 seconds!" << std::endl;
+            std::cout << "Game will start in " << countdown_time << " seconds!" << std::endl;
+            send_message_to_all(players, "gam|2|");
+
             time_t now = time(0);
-            start_time = now + 20;
+            start_time = now + countdown_time;
         }
     }
 

@@ -131,7 +131,7 @@ std::vector<size_t> find_occurrences(const std::string &str, char character, siz
     return indices;
 }
 
-std::vector<std::string> splitString(const char delimiter, const std::string &input, int wordsToFind)
+std::vector<std::string> split_string(const char delimiter, const std::string &input, int wordsToFind)
 {
     std::vector<std::string> result;
     std::string currentWord;
@@ -178,7 +178,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
     if (type == "nic")
     {
         std::cout << "Nic" << std::endl;
-        std::vector<std::string> words = splitString('|', full_message, 2);
+        std::vector<std::string> words = split_string('|', full_message, 2);
 
         response = handle_new_client_nickname(client_fd, players, active_players, words[1], 0);
     }
@@ -192,7 +192,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
 
         time_t time_left_to_answer = game.get_time_left();
         std::cout << "Answer" << std::endl;
-        std::vector<std::string> words = splitString('|', full_message, 2);
+        std::vector<std::string> words = split_string('|', full_message, 2);
         if (game.get_current_question_number() != std::stoi(words[1]))
         {
             std::cout << "Wrong question number" << std::endl;
@@ -259,6 +259,15 @@ bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, 
 
     std::cout << "Active players: " << *active_players << std::endl;
     return true;
+}
+
+int reset_points(std::unordered_map<int, Player> &players)
+{
+    for (auto &p : players)
+    {
+        p.second.points = 0;
+    }
+    return 0;
 }
 
 std::string get_parsed_ranking(std::unordered_map<int, Player> &players)
