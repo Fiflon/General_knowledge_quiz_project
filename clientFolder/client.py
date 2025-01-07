@@ -2,7 +2,7 @@ import socket
 import threading
 import tkinter as tk
 import re
-from tkinter import scrolledtext, messagebox, simpledialog
+from tkinter import scrolledtext, messagebox, simpledialog, ttk
 import struct
 
 
@@ -38,7 +38,6 @@ class NetcatClientApp:
         self.root = root
         self.root.title("General Knowledge Quiz Project")
 
-        # Interfejs użytkownika
         tk.Label(root, text="Host:").grid(row=0, column=0)
         self.host_entry = tk.Entry(root)
         self.host_entry.grid(row=0, column=1)
@@ -47,7 +46,7 @@ class NetcatClientApp:
         self.port_entry = tk.Entry(root)
         self.port_entry.grid(row=1, column=1)
 
-        self.text_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state='disabled')
+        self.text_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state='disabled', height=10)
         self.text_area.grid(row=2, column=0, columnspan=2, pady=10)
 
         self.message_entry = tk.Entry(root)
@@ -59,6 +58,46 @@ class NetcatClientApp:
         self.start_button = tk.Button(root, text="Connect", command=self.connect_to_server)
         self.start_button.grid(row=4, column=0, columnspan=2, pady=10)
 
+        # Questions
+        self.question_frame = tk.Frame(root)
+        self.question_frame.grid(row=5, column=0, columnspan=2, pady=10)
+
+        tk.Label(self.question_frame, text="Question: ").grid(row=0, column=0, sticky='w')
+        self.question_number_label = tk.Label(self.question_frame, text="")
+        self.question_number_label.grid(row=0, column=1, sticky='w')
+        self.current_question_number = None 
+
+        tk.Label(self.question_frame, text="Difficulty:").grid(row=0, column=2, sticky='w', padx=10)
+        self.difficulty_label = tk.Label(self.question_frame, text="")
+        self.difficulty_label.grid(row=0, column=3, sticky='w')
+
+        self.question_label = tk.Label(self.question_frame, text="", wraplength=400, justify='left', anchor='w')
+        self.question_label.grid(row=1, column=0, columnspan=4, sticky='w')
+                
+
+        self.answer_buttons = []
+        for i, label in enumerate(["A", "B", "C", "D"]):
+            btn = tk.Button(self.question_frame, text=label, command=lambda idx=i: self.answer_selected(idx))
+            btn.grid(row=2 + i, column=0, columnspan=4, sticky='ew', pady=2)
+            btn.config(state='disabled')
+            self.answer_buttons.append(btn)
+
+        # Ranking
+        self.rank_frame = tk.Frame(root)
+        self.rank_frame.grid(row=6, column=0, columnspan=2, pady=10)
+
+        tk.Label(self.rank_frame, text="Ranking:").grid(row=0, column=0, sticky='w')
+
+        self.rank_tree = ttk.Treeview(self.rank_frame, columns=("Nickname", "Points"), show="headings")
+        self.rank_tree.grid(row=1, column=0, columnspan=2, pady=5)
+
+        self.rank_tree.heading("Nickname", text="Nickname")
+        self.rank_tree.heading("Points", text="Points")
+
+        self.rank_tree.column("Nickname", width=150)
+        self.rank_tree.column("Points", width=80)
+
+        
         self.username = None
         self.client_socket = None
         self.receive_thread = None
@@ -88,6 +127,51 @@ class NetcatClientApp:
                                                         "- Without special characters and spaces")
 
 
+    def display_question(self, question_number, question_text, difficulty, answers):
+        self.current_question_number = question_number 
+        self.question_number_label.config(text=question_number)
+        self.difficulty_label.config(text=difficulty)
+        self.question_label.config(text=question_text)
+
+        for btn in self.answer_buttons:
+            btn.config(state='normal')
+
+        for btn, answer in zip(self.answer_buttons, answers):
+            btn.config(text=answer)
+
+
+    def answer_selected(self, index):
+        if self.client_socket and self.current_question_number:
+            if index == 0:
+                letter = "a"
+            elif index == 1:
+                letter = "b"
+            elif index == 2:
+                letter = "c"
+            elif index == 3:
+                letter = "d"
+            answer_message = f"ans|{self.current_question_number}|{letter}|"
+            send_string(self.client_socket, answer_message)
+            self.append_text(f"You selected answer {letter} for question {self.current_question_number}")
+
+            for btn in self.answer_buttons:
+                btn.config(state='disabled')
+
+
+    def update_ranking(self, message):
+        parts = message.split('|')[1:] 
+
+        if parts[-1] == "":
+            parts = parts[:-1]
+
+        for row in self.rank_tree.get_children():
+            self.rank_tree.delete(row)
+
+        for part in parts:
+            nickname, points = part.split(':')
+            self.rank_tree.insert("", "end", values=(nickname, points))
+
+
     def connect_to_server(self):
         host = self.host_entry.get()
         port = self.port_entry.get()
@@ -103,10 +187,6 @@ class NetcatClientApp:
             self.client_socket.connect((host, port))
             
             self.set_username()
-
-            print(f"Tuż przed wysłaniem nicku nic|{self.username}|")
-            send_string(self.client_socket, f"nic|{self.username}|")
-            print(f"Nick wyslany")
 
             self.start_button.config(state='disabled')
             self.send_button.config(state='normal')
@@ -125,7 +205,7 @@ class NetcatClientApp:
         if message.startswith("nic|"):
             status = message.split('|')[1]
             print(f"Status: {status}")
-            if status == "0":
+            if status == "0" or status == "4" or status == "5":
                 self.append_text(f"Username set: {self.username}")
                 self.root.title(f"Quiz - {self.username}")
             else:
@@ -135,8 +215,28 @@ class NetcatClientApp:
                     messagebox.showwarning("Invalid Username", "It has special characters.")
                 elif status == "3":
                     messagebox.showwarning("Invalid Username", "It's too long or too short.")
-
                 self.set_username()
+        elif message.startswith("que|"):
+            parts = message.split('|')
+            question_number = parts[1]
+            question_text = parts[2]
+            answers = parts[3:7]
+            difficulty = parts[7]
+            print(f"{question_number}|{question_text}|{answers}|{difficulty}")
+            self.display_question(question_number, question_text, difficulty, answers)
+        elif message.startswith("ans|"):
+            parts = message.split('|')
+            status = parts[1]
+            if status == '0':
+                self.append_text("Correct answer!")
+            elif status == '1':
+                self.append_text("Incorrect answer!")
+            elif status == '2':
+                self.append_text("Invalid question number!")
+            elif status == '3':
+                self.append_text("The game is not currently running!")
+        elif message.startswith("rank|"):
+            self.update_ranking(message)
         else:
             self.append_text(message)
 
