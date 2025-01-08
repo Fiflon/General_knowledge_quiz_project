@@ -1,6 +1,5 @@
 #include "server_utils.h"
 #include "player.h"
-#include "game_logic.h"
 #include "nickname_handler.h"
 #include "questions.h"
 #include "game.h"
@@ -151,6 +150,8 @@ int main()
             send_message_to_all(players, "gam|0|");
             countdown_started = false;
             game.start_game();
+            std::string current_ranking = get_parsed_ranking(players);
+            send_message_to_all(players, current_ranking);
             game.next_question();
             send_message_to_all(players, game.get_current_question_parsed());
         }
@@ -206,9 +207,9 @@ int main()
 
         if (active_players < 2 && game.is_game_in_progress())
         {
-            game.end_game();
             std::string current_ranking = get_parsed_ranking(players);
             send_message_to_all(players, current_ranking);
+            game.end_game();
 
             reset_points(players);
             send_message_to_all(players, "gam|4|");

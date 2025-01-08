@@ -192,7 +192,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
 
         time_t time_left_to_answer = game.get_time_left();
         std::cout << "Answer" << std::endl;
-        std::vector<std::string> words = split_string('|', full_message, 2);
+        std::vector<std::string> words = split_string('|', full_message, 3);
         if (game.get_current_question_number() != std::stoi(words[1]))
         {
             std::cout << "Wrong question number" << std::endl;
@@ -208,7 +208,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
         else
         {
             std::cout << "Correct answer" << std::endl;
-            int points_to_add = time_left_to_answer ^ 2 / 2 * game.get_question_difficulty() / 3;
+            int points_to_add = (time_left_to_answer * 5) + (game.get_question_difficulty() * 4);
             players[client_fd].points += points_to_add;
             std::cout << "Current points: " << players[client_fd].points << players[client_fd].nickname << std::endl;
             response = "ans|0|";
