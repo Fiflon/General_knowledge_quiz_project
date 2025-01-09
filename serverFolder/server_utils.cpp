@@ -180,7 +180,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
         std::cout << "Nic" << std::endl;
         std::vector<std::string> words = split_string('|', full_message, 2);
 
-        response = handle_new_client_nickname(client_fd, players, active_players, words[1], 0);
+        response = handle_new_client_nickname(client_fd, players, active_players, words[1]);
     }
     else if (type == "ans")
     {

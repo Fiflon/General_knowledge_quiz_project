@@ -77,7 +77,11 @@ std::string recv_string(int socket, std::unordered_map<int, Player> &players, in
         }
     }
 
-    // moze dodac sprawdznie wielkosci
+    if (n != sizeof(sizeOfMsg))
+    {
+        std::cerr << "Error: n != sizeof(sizeOfMsg)" << std::endl;
+        return "-200";
+    }
 
     char buffer[sizeOfMsg + 1];
 
@@ -141,7 +145,6 @@ int main()
             countdown_started = false;
             start_time = 0;
             std::cout << "Not enough players to start the game. Waiting for more players..." << std::endl;
-            // wyslij gam
             send_message_to_all(players, "gam|1|");
         }
 
