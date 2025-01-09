@@ -5,7 +5,6 @@ import re
 from tkinter import scrolledtext, messagebox, simpledialog, ttk
 import struct
 
-
 def send_string(sock, message):
     size_of_msg = len(message)
     print(type(size_of_msg))
@@ -33,12 +32,12 @@ def recv_string(sock):
     return message_data
 
 
-class NetcatClientApp:
+class QuizClient:
     def __init__(self, root):
         self.root = root
         self.root.title("General Knowledge Quiz Project")
 
-        tk.Label(root, text="Host:").grid(row=0, column=0)
+        tk.Label(root, text="Host:").grid(row=0, column=0, pady=5)
         self.host_entry = tk.Entry(root)
         self.host_entry.grid(row=0, column=1)
 
@@ -46,17 +45,11 @@ class NetcatClientApp:
         self.port_entry = tk.Entry(root)
         self.port_entry.grid(row=1, column=1)
 
-        self.text_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state='disabled', height=10)
-        self.text_area.grid(row=2, column=0, columnspan=2, pady=10)
-
-        self.message_entry = tk.Entry(root)
-        self.message_entry.grid(row=3, column=0, padx=5, pady=5)
-
-        self.send_button = tk.Button(root, text="Send", command=self.send_message, state='disabled')
-        self.send_button.grid(row=3, column=1, padx=5, pady=5)
-
         self.start_button = tk.Button(root, text="Connect", command=self.connect_to_server)
-        self.start_button.grid(row=4, column=0, columnspan=2, pady=10)
+        self.start_button.grid(row=2, column=1, columnspan=2, pady=5)
+
+        self.text_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state='disabled', height=10)
+        self.text_area.grid(row=3, column=0, columnspan=2, pady=10)
 
         # Questions
         self.question_frame = tk.Frame(root)
@@ -73,6 +66,9 @@ class NetcatClientApp:
 
         self.question_label = tk.Label(self.question_frame, text="", wraplength=400, justify='left', anchor='w')
         self.question_label.grid(row=1, column=0, columnspan=4, sticky='w')
+
+        self.time_progress = ttk.Progressbar(self.question_frame, maximum=100, length=400)
+        self.time_progress.grid(row=6, column=0, columnspan=4, pady=5)
                 
 
         self.answer_buttons = []
@@ -101,6 +97,7 @@ class NetcatClientApp:
         self.username = None
         self.client_socket = None
         self.receive_thread = None
+        self.timer_running = False
     
     
     def is_valid_nickname(self, nickname):
@@ -112,7 +109,7 @@ class NetcatClientApp:
             return False
         return True
 
-                
+       
     def set_username(self):
         dialog = tk.Toplevel(self.root)
         dialog.title("Set Nickname")
@@ -135,11 +132,29 @@ class NetcatClientApp:
         tk.Button(dialog, text="Confirm", command=confirm).pack(pady=10)
         dialog.wait_window()
 
+    def reset_timer(self):
+        self.timer_running = False
+        self.time_progress["value"] = 0
+        self.root.update_idletasks()
+
+    def start_timer(self, duration):
+        self.reset_timer()
+        self.timer_running = True
+        step = 100 / (duration * 10)
+
+        def update_progress(current_time):
+            if current_time < duration:
+                self.time_progress["value"] += step
+                self.root.update_idletasks()
+                self.root.after(100, update_progress, current_time + 0.1)
+
+        update_progress(0)
+
 
     def display_question(self, question_number, question_text, difficulty, answers):
         self.current_question_number = question_number 
         self.question_number_label.config(text=question_number)
-        self.difficulty_label.config(text=difficulty)
+        self.difficulty_label.config(text=f"{difficulty}/3")
         self.question_label.config(text=question_text)
 
         for btn in self.answer_buttons:
@@ -147,6 +162,8 @@ class NetcatClientApp:
 
         for btn, answer in zip(self.answer_buttons, answers):
             btn.config(text=answer)
+        
+        self.start_timer(duration=7)
 
 
     def answer_selected(self, index):
@@ -180,6 +197,18 @@ class NetcatClientApp:
             nickname, points = part.split(':')
             self.rank_tree.insert("", "end", values=(nickname, points))
 
+    
+    def get_winner(self):
+        max_points = -1
+        winner = ""
+        for row in self.rank_tree.get_children():
+            nickname, points = self.rank_tree.item(row, "values")
+            points = int(points)
+            if points > max_points:
+                max_points = points
+                winner = nickname
+        return winner, max_points
+
 
     def connect_to_server(self):
         host = self.host_entry.get()
@@ -198,7 +227,6 @@ class NetcatClientApp:
             self.set_username()
 
             self.start_button.config(state='disabled')
-            self.send_button.config(state='normal')
             self.append_text(f"Connected to the server {host}:{port}\n")
             print(f"Połączono z {host}:{port} jako {self.username}")
 
@@ -243,9 +271,13 @@ class NetcatClientApp:
                 for btn in self.answer_buttons:
                     btn.config(state='disabled')
                 if status == "3":
-                    self.append_text(f"The game ended. Congratulations to all players!")
+                    winner, max_points = self.get_winner()
+                    if winner != "":
+                        self.append_text(f"Game over! The winner is {winner} with {max_points} points!")
+                    else:
+                        self.append_text("Game over! No winner could be determined.")
                 else:
-                    self.append_text(f"The game ended due to too few players (there have to be at least 2 players).")
+                    self.append_text(f"Game over! The game ended due to too few players (there have to be at least 2 players).")
         elif message.startswith("dis|"):
             disconnected_player = message.split('|')[1]
             self.append_text(f"Player {disconnected_player} disconnected.")
@@ -315,5 +347,5 @@ class NetcatClientApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = NetcatClientApp(root)
+    app = QuizClient(root)
     root.mainloop()
