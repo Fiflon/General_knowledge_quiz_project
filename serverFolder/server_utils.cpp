@@ -263,6 +263,11 @@ std::string get_parsed_ranking(std::unordered_map<int, Player> &players)
     std::vector<std::pair<std::string, int>> ranking;
     for (const auto &p : players)
     {
+        if (p.second.nickname == "")
+        {
+            continue;
+        }
+
         ranking.push_back({p.second.nickname, p.second.points});
     }
 

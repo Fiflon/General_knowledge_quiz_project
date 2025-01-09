@@ -115,6 +115,11 @@ int send_message_to_all(const std::unordered_map<int, Player> &players, const st
     {
         std::cout << "Sending message to player: " << p.second.nickname << std::endl;
 
+        if (p.second.nickname == "")
+        {
+            continue;
+        }
+
         if (send_string(p.second.fd, message) != 0)
         {
             std::cout << "Error sending message to player: " << p.second.nickname << std::endl;
@@ -138,10 +143,6 @@ int main()
 
     while (true)
     {
-        if (active_players < 0)
-        {
-            active_players = 0;
-        }
 
         if (active_players < 3 && countdown_started)
         {
