@@ -77,11 +77,14 @@ std::string recv_string(int socket, std::unordered_map<int, Player> &players, in
         }
     }
 
-    // moze dodac sprawdznie wielkosci
+    if (n != sizeof(sizeOfMsg))
+    {
+        std::cerr << "Error: n != sizeof(sizeOfMsg)" << std::endl;
+        return "-200";
+    }
 
-    char buffer[sizeOfMsg + 1];
-
-    n = recv(socket, buffer, sizeOfMsg, 0);
+    std::vector<char> buffer(sizeOfMsg + 1);
+    n = recv(socket, buffer.data(), sizeOfMsg, 0);
 
     if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
     {
@@ -102,7 +105,7 @@ std::string recv_string(int socket, std::unordered_map<int, Player> &players, in
     }
 
     buffer[sizeOfMsg] = '\0';
-    return std::string(buffer);
+    return std::string(buffer.data());
 }
 
 int send_message_to_all(const std::unordered_map<int, Player> &players, const std::string &message)
@@ -111,6 +114,11 @@ int send_message_to_all(const std::unordered_map<int, Player> &players, const st
     for (const auto &p : players)
     {
         std::cout << "Sending message to player: " << p.second.nickname << std::endl;
+
+        if (p.second.nickname == "")
+        {
+            continue;
+        }
 
         if (send_string(p.second.fd, message) != 0)
         {
@@ -141,7 +149,6 @@ int main()
             countdown_started = false;
             start_time = 0;
             std::cout << "Not enough players to start the game. Waiting for more players..." << std::endl;
-            // wyslij gam
             send_message_to_all(players, "gam|1|");
         }
 
@@ -156,7 +163,7 @@ int main()
             send_message_to_all(players, game.get_current_question_parsed());
         }
 
-        int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, 500);
+        int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, 200);
         if (nfds == -1)
         {
             perror("epoll_wait");
