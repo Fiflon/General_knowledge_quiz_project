@@ -112,25 +112,6 @@ void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, 
     players[client_fd] = {client_fd, "", 0};
 }
 
-std::vector<size_t> find_occurrences(const std::string &str, char character, size_t count)
-{
-    std::vector<size_t> indices;
-    size_t pos = 0;
-
-    for (size_t i = 0; i < count; ++i)
-    {
-        pos = str.find(character, pos);
-        if (pos == std::string::npos)
-        {
-            break;
-        }
-        indices.push_back(pos);
-        ++pos;
-    }
-
-    return indices;
-}
-
 std::vector<std::string> split_string(const char delimiter, const std::string &input, int wordsToFind)
 {
     std::vector<std::string> result;
@@ -180,7 +161,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
         std::cout << "Nic" << std::endl;
         std::vector<std::string> words = split_string('|', full_message, 2);
 
-        response = handle_new_client_nickname(client_fd, players, active_players, words[1], 0);
+        response = handle_new_client_nickname(client_fd, players, active_players, words[1]);
     }
     else if (type == "ans")
     {
@@ -191,6 +172,9 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
         }
 
         time_t time_left_to_answer = game.get_time_left();
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        int milliseconds = 1000 - (ts.tv_nsec / 1000000);
         std::cout << "Answer" << std::endl;
         std::vector<std::string> words = split_string('|', full_message, 3);
         if (game.get_current_question_number() != std::stoi(words[1]))
@@ -208,8 +192,12 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
         else
         {
             std::cout << "Correct answer" << std::endl;
-            int points_to_add = (time_left_to_answer * 5) + (game.get_question_difficulty() * 4);
-            players[client_fd].points += points_to_add;
+            int points_to_add = (time_left_to_answer * 8) + (game.get_question_difficulty() * 4);
+            points_to_add += milliseconds / 200;
+            std::cout << milliseconds / 200 << std::endl;
+
+            players[client_fd]
+                .points += points_to_add;
             std::cout << "Current points: " << players[client_fd].points << players[client_fd].nickname << std::endl;
             response = "ans|0|";
         }
@@ -275,6 +263,11 @@ std::string get_parsed_ranking(std::unordered_map<int, Player> &players)
     std::vector<std::pair<std::string, int>> ranking;
     for (const auto &p : players)
     {
+        if (p.second.nickname == "")
+        {
+            continue;
+        }
+
         ranking.push_back({p.second.nickname, p.second.points});
     }
 

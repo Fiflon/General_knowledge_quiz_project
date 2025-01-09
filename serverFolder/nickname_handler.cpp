@@ -18,7 +18,7 @@ bool is_nickname_unique(const std::string &nickname, const std::unordered_map<in
     return true;
 }
 
-std::string handle_new_client_nickname(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string nickname, int epoll_fd)
+std::string handle_new_client_nickname(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string nickname)
 {
 
     nickname.erase(std::remove(nickname.begin(), nickname.end(), '\n'), nickname.end());
