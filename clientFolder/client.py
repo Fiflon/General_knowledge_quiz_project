@@ -112,19 +112,28 @@ class NetcatClientApp:
             return False
         return True
 
-
+                
     def set_username(self):
-        while True:
-            new_username = tk.simpledialog.askstring("Nickname", "Set your nickname:")
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Set Nickname")
+        tk.Label(dialog, text="Enter your nickname:").pack(pady=10)
+        entry = tk.Entry(dialog)
+        entry.pack(pady=5)
+
+        def confirm():
+            new_username = entry.get()
             if self.is_valid_nickname(new_username):
                 self.username = new_username
                 send_string(self.client_socket, f"nic|{self.username}|")
-                break
+                dialog.destroy()
             else:
                 messagebox.showerror("Invalid Username", "Your nickname is invalid. Requirements:\n"
                                                         "- Not empty\n"
                                                         "- Less than 20 and more than 4 characters\n"
                                                         "- Without special characters and spaces")
+
+        tk.Button(dialog, text="Confirm", command=confirm).pack(pady=10)
+        dialog.wait_window()
 
 
     def display_question(self, question_number, question_text, difficulty, answers):
@@ -206,8 +215,14 @@ class NetcatClientApp:
             status = message.split('|')[1]
             print(f"Status: {status}")
             if status == "0" or status == "4" or status == "5":
+                self.append_text(f"Welcome to the General Knowledge Quiz!")
                 self.append_text(f"Username set: {self.username}")
+                self.append_text(f"There must be at least 3 players to start the game.")
                 self.root.title(f"Quiz - {self.username}")
+                if status == "4":
+                    self.append_text(f"The game has already started. No worries, you will join from the next question.")
+                if status == "5":
+                    self.append_text(f"The 20s countdown to start the game has already started. Prepare for the start of the game.")
             else:
                 if status == "1":
                     messagebox.showwarning("Invalid Username", "It's already taken.")
@@ -216,6 +231,27 @@ class NetcatClientApp:
                 elif status == "3":
                     messagebox.showwarning("Invalid Username", "It's too long or too short.")
                 self.set_username()
+        elif message.startswith("gam|"):
+            status = message.split('|')[1]
+            if status == "0":
+                self.append_text(f"The game started.")
+            elif status == "1":
+                self.append_text(f"The countdown paused due to too few players (3 players are needed to start a game).")
+            elif status == "2":
+                self.append_text(f"The 20s countdown started now. Prepare for the start of the game.")
+            elif status == "3" or "4":
+                for btn in self.answer_buttons:
+                    btn.config(state='disabled')
+                if status == "3":
+                    self.append_text(f"The game ended. Congratulations to all players!")
+                else:
+                    self.append_text(f"The game ended due to too few players (there have to be at least 2 players).")
+        elif message.startswith("dis|"):
+            disconnected_player = message.split('|')[1]
+            self.append_text(f"Player {disconnected_player} disconnected.")
+        elif message.startswith("xxx|"):
+            server_info = message.split('|')[1]
+            self.append_text(f"Information from server: {server_info}.")
         elif message.startswith("que|"):
             parts = message.split('|')
             question_number = parts[1]
@@ -225,16 +261,15 @@ class NetcatClientApp:
             print(f"{question_number}|{question_text}|{answers}|{difficulty}")
             self.display_question(question_number, question_text, difficulty, answers)
         elif message.startswith("ans|"):
-            parts = message.split('|')
-            status = parts[1]
+            status = message.split('|')[1]
             if status == '0':
                 self.append_text("Correct answer!")
             elif status == '1':
                 self.append_text("Incorrect answer!")
             elif status == '2':
-                self.append_text("Invalid question number!")
+                self.append_text("Invalid question number.")
             elif status == '3':
-                self.append_text("The game is not currently running!")
+                self.append_text("The game is not currently running.")
         elif message.startswith("rank|"):
             self.update_ranking(message)
         else:
