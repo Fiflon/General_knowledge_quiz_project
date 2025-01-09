@@ -83,9 +83,8 @@ std::string recv_string(int socket, std::unordered_map<int, Player> &players, in
         return "-200";
     }
 
-    char buffer[sizeOfMsg + 1];
-
-    n = recv(socket, buffer, sizeOfMsg, 0);
+    std::vector<char> buffer(sizeOfMsg + 1);
+    n = recv(socket, buffer.data(), sizeOfMsg, 0);
 
     if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
     {
@@ -106,7 +105,7 @@ std::string recv_string(int socket, std::unordered_map<int, Player> &players, in
     }
 
     buffer[sizeOfMsg] = '\0';
-    return std::string(buffer);
+    return std::string(buffer.data());
 }
 
 int send_message_to_all(const std::unordered_map<int, Player> &players, const std::string &message)
@@ -139,6 +138,10 @@ int main()
 
     while (true)
     {
+        if (active_players < 0)
+        {
+            active_players = 0;
+        }
 
         if (active_players < 3 && countdown_started)
         {
@@ -159,7 +162,7 @@ int main()
             send_message_to_all(players, game.get_current_question_parsed());
         }
 
-        int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, 500);
+        int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, 200);
         if (nfds == -1)
         {
             perror("epoll_wait");
