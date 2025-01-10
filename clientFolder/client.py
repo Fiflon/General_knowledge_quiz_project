@@ -15,21 +15,25 @@ def send_string(sock, message):
 
 
 def recv_string(sock):
-    print("Czekam na rozmiar wiadomości...")
-    size_of_msg_data = struct.unpack('i', sock.recv(4))[0]
-    if not size_of_msg_data:
-        raise ConnectionError("Didin't receive data in the right format.")
-    
-    size_of_msg = size_of_msg_data
-    print(f"Otrzymano rozmiar wiadomości: {size_of_msg}")
-    message_data = sock.recv(size_of_msg)
-    print(f"Otrzymane dane wiadomości: {message_data}")
+    try:
+        print("Czekam na rozmiar wiadomości...")
+        size_of_msg_data = sock.recv(4)
+        if not size_of_msg_data:
+            raise ConnectionError("The connection to the server was interrupted.")
 
-    if len(message_data) != size_of_msg:
-        raise ValueError("Didn't received the whole message.")
-    # przesyl ponowny?
+        size_of_msg = struct.unpack('i', size_of_msg_data)[0]
+        print(f"Otrzymano rozmiar wiadomości: {size_of_msg}")
+        message_data = sock.recv(size_of_msg)
+        print(f"Otrzymane dane wiadomości: {message_data}")
 
-    return message_data
+        if len(message_data) != size_of_msg:
+            raise ValueError("Didn't receive the whole message.")
+
+        return message_data
+    except ConnectionError as e:
+        raise ConnectionError(str(e))
+    except struct.error:
+        raise ConnectionError("The connection to the server was interrupted due to invalid data.")
 
 
 class QuizClient:
@@ -98,6 +102,7 @@ class QuizClient:
         self.client_socket = None
         self.receive_thread = None
         self.timer_running = False
+        self.previous_players = set()
     
     
     def is_valid_nickname(self, nickname):
@@ -189,6 +194,8 @@ class QuizClient:
 
         if parts[-1] == "":
             parts = parts[:-1]
+        
+        current_players = set()
 
         for row in self.rank_tree.get_children():
             self.rank_tree.delete(row)
@@ -196,6 +203,14 @@ class QuizClient:
         for part in parts:
             nickname, points = part.split(':')
             self.rank_tree.insert("", "end", values=(nickname, points))
+            current_players.add(nickname)
+
+        new_players = current_players - self.previous_players
+        self.previous_players = current_players
+
+        for new_player in new_players:
+            if new_player != self.username:
+                self.append_text(f"Player {new_player} is in the game! He started playing from the question {self.current_question_number or 1}.")
 
     
     def get_winner(self):
@@ -207,6 +222,8 @@ class QuizClient:
             if points > max_points:
                 max_points = points
                 winner = nickname
+            elif points == max_points:
+                winner += "|" + nickname
         return winner, max_points
 
 
@@ -232,6 +249,12 @@ class QuizClient:
 
             self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
             self.receive_thread.start()
+        
+        except ConnectionRefusedError:
+            error_message = "Failed to connect to the server. The server is offline or unreachable."
+            self.append_text(f"{error_message}\n")
+            messagebox.showerror("Connection Error", error_message)
+            print(error_message)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to connect to the server: {e}")
@@ -263,6 +286,7 @@ class QuizClient:
             status = message.split('|')[1]
             if status == "0":
                 self.append_text(f"The game started.")
+                self.rank_frame.children["!label"].config(text="Ranking")
             elif status == "1":
                 self.append_text(f"The countdown paused due to too few players (3 players are needed to start a game).")
             elif status == "2":
@@ -270,10 +294,14 @@ class QuizClient:
             elif status == "3" or "4":
                 for btn in self.answer_buttons:
                     btn.config(state='disabled')
+                self.rank_frame.children["!label"].config(text="Final ranking")
                 if status == "3":
                     winner, max_points = self.get_winner()
                     if winner != "":
-                        self.append_text(f"Game over! The winner is {winner} with {max_points} points!")
+                        if "|" in winner:
+                            self.append_text(f"Game over! The winners are {", ".join(winner.split("|"))} with {max_points} points!")
+                        else:
+                            self.append_text(f"Game over! The winner is {winner} with {max_points} points!")
                     else:
                         self.append_text("Game over! No winner could be determined.")
                 else:
@@ -281,9 +309,6 @@ class QuizClient:
         elif message.startswith("dis|"):
             disconnected_player = message.split('|')[1]
             self.append_text(f"Player {disconnected_player} disconnected.")
-        elif message.startswith("xxx|"):
-            server_info = message.split('|')[1]
-            self.append_text(f"Information from server: {server_info}.")
         elif message.startswith("que|"):
             parts = message.split('|')
             question_number = parts[1]
@@ -316,14 +341,16 @@ class QuizClient:
                 if not message:
                     break
                 print(f"Otrzymana wiadomość: {message}")
-                # self.append_text(message)
                 self.parse_message(message)
+        except ConnectionError as e:
+            self.append_text(f"Connection error: {e}")
+            print(f"Błąd połączenia: {e}")
         except Exception as e:
-            self.append_text(f"Error while receiving a message: {e}\n")
-            print(f"Błąd podczas odbierania wiadomości: {e}")
+            self.append_text(f"Unexpected error while receiving a message: {e}\n")
+            print(f"Niespodziewany błąd: {e}")
         finally:
             self.client_socket.close()
-            self.append_text("Połączenie zostało zakończone.\n")
+            self.append_text("You disconnected from the server.\n")
             print("Połączenie zostało zamknięte.")
 
 
