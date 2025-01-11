@@ -151,7 +151,7 @@ std::vector<std::string> split_string(const char delimiter, const std::string &i
     // rest_n = 0;
     return result;
 }
-std::string handle_client_message(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string &full_message, Game &game)
+std::string handle_client_message(int client_fd, std::unordered_map<int, Player> &players, std::string &full_message, Game &game)
 {
     std::string type = full_message.substr(0, 3);
     std::string response = "-999";
@@ -161,7 +161,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
         std::cout << "Nic" << std::endl;
         std::vector<std::string> words = split_string('|', full_message, 2);
 
-        response = handle_new_client_nickname(client_fd, players, active_players, words[1]);
+        response = handle_new_client_nickname(client_fd, players, words[1]);
     }
     else if (type == "ans")
     {
@@ -220,7 +220,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
     return response;
 }
 
-bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, Player> &players, int epoll_fd, int *active_players)
+bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, Player> &players, int epoll_fd)
 {
     if (n > 0)
     {
@@ -233,19 +233,14 @@ bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, 
     }
     else
     {
-        (*active_players)--;
         perror("read");
     }
     close(client_fd);
     shutdown(client_fd, SHUT_RDWR);
 
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
-    if (players[client_fd].nickname != "" && players.erase(client_fd) != 0)
-    {
-        (*active_players)--;
-    };
+    players.erase(client_fd);
 
-    std::cout << "Active players: " << *active_players << std::endl;
     return true;
 }
 
@@ -256,6 +251,20 @@ int reset_points(std::unordered_map<int, Player> &players)
         p.second.points = 0;
     }
     return 0;
+}
+
+int count_active_players(const std::unordered_map<int, Player> &players)
+{
+    int active_players = 0;
+    for (const auto &p : players)
+    {
+        if (p.second.nickname == "")
+        {
+            continue;
+        }
+        active_players++;
+    }
+    return active_players;
 }
 
 std::string get_parsed_ranking(std::unordered_map<int, Player> &players)

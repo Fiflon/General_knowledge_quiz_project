@@ -6,6 +6,6 @@
 #include <unordered_map>
 #include "player.h"
 
-std::string handle_new_client_nickname(int client_fd, std::unordered_map<int, Player> &players, int *active_players, std::string nickname);
+std::string handle_new_client_nickname(int client_fd, std::unordered_map<int, Player> &players, std::string nickname);
 
 #endif // NICKNAME_HANDLER_H

@@ -59,13 +59,13 @@ int send_string(int socket, const std::string &message)
     return 0;
 }
 
-std::string recv_string(int socket, std::unordered_map<int, Player> &players, int epoll_fd, int *active_players)
+std::string recv_string(int socket, std::unordered_map<int, Player> &players, int epoll_fd)
 {
     int sizeOfMsg;
     int n = recv(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
     std::string nick = players[socket].nickname;
 
-    if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
+    if (client_disconnected_or_error(n, socket, players, epoll_fd))
     {
         if (nick != "")
         {
@@ -86,7 +86,7 @@ std::string recv_string(int socket, std::unordered_map<int, Player> &players, in
     std::vector<char> buffer(sizeOfMsg + 1);
     n = recv(socket, buffer.data(), sizeOfMsg, 0);
 
-    if (client_disconnected_or_error(n, socket, players, epoll_fd, active_players))
+    if (client_disconnected_or_error(n, socket, players, epoll_fd))
     {
         if (nick != "")
         {
@@ -144,6 +144,8 @@ int main()
     while (true)
     {
 
+        active_players = count_active_players(players);
+
         if (active_players < 3 && countdown_started)
         {
             countdown_started = false;
@@ -181,7 +183,7 @@ int main()
             }
             else
             {
-                std::string recived_message = recv_string(events[n].data.fd, players, epoll_fd, &active_players);
+                std::string recived_message = recv_string(events[n].data.fd, players, epoll_fd);
 
                 if (recived_message == "-100" || recived_message == "-200")
                 {
@@ -190,7 +192,7 @@ int main()
 
                 std::cout << "Full message: " << recived_message << std::endl;
 
-                std::string response = handle_client_message(events[n].data.fd, players, &active_players, recived_message, game);
+                std::string response = handle_client_message(events[n].data.fd, players, recived_message, game);
 
                 if (response.rfind("dis", 0) == 0)
                 {
