@@ -44,13 +44,18 @@ class QuizClient:
         tk.Label(root, text="Host:").grid(row=0, column=0, pady=5)
         self.host_entry = tk.Entry(root)
         self.host_entry.grid(row=0, column=1)
+        self.host_entry.insert(0, "127.0.0.1")
 
         tk.Label(root, text="Port:").grid(row=1, column=0)
         self.port_entry = tk.Entry(root)
         self.port_entry.grid(row=1, column=1)
+        self.port_entry.insert(0, "9867")
 
         self.start_button = tk.Button(root, text="Connect", command=self.connect_to_server)
         self.start_button.grid(row=2, column=1, columnspan=2, pady=5)
+
+        self.disconnect_button = tk.Button(root, text="Disconnect", command=self.disconnect_from_server, state='disabled')
+        self.disconnect_button.grid(row=2, column=0, columnspan=2, pady=5)
 
         self.text_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, state='disabled', height=10)
         self.text_area.grid(row=3, column=0, columnspan=2, pady=10)
@@ -137,10 +142,12 @@ class QuizClient:
         tk.Button(dialog, text="Confirm", command=confirm).pack(pady=10)
         dialog.wait_window()
 
+
     def reset_timer(self):
         self.timer_running = False
         self.time_progress["value"] = 0
         self.root.update_idletasks()
+
 
     def start_timer(self, duration):
         self.reset_timer()
@@ -244,6 +251,9 @@ class QuizClient:
             self.set_username()
 
             self.start_button.config(state='disabled')
+            self.host_entry.config(state='disabled')
+            self.port_entry.config(state='disabled')
+            self.disconnect_button.config(state='normal')
             self.append_text(f"Connected to the server {host}:{port}\n")
             print(f"Połączono z {host}:{port} jako {self.username}")
 
@@ -258,6 +268,27 @@ class QuizClient:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to connect to the server: {e}")
+
+    
+    def disconnect_from_server(self):
+        if self.client_socket:
+            try:
+                self.client_socket.close()
+                send_string(self.client_socket, "exi|")
+                self.append_text("You have disconnected from the server.\n")
+                print("Połączenie zostało zamknięte.")
+            except Exception as e:
+                self.append_text(f"Błąd podczas rozłączania: {e}\n")
+                print(f"Błąd rozłączania: {e}")
+            finally:
+                self.client_socket = None
+                self.start_button.config(state='normal')
+                self.disconnect_button.config(state='disabled')
+                self.host_entry.config(state='normal')
+                self.port_entry.config(state='normal')
+                for btn in self.answer_buttons:
+                    btn.config(state='disabled')
+                self.reset_timer()
 
 
     def parse_message(self, message):
@@ -286,11 +317,14 @@ class QuizClient:
             status = message.split('|')[1]
             if status == "0":
                 self.append_text(f"The game started.")
+                self.reset_timer()
                 self.rank_frame.children["!label"].config(text="Ranking")
             elif status == "1":
                 self.append_text(f"The countdown paused due to too few players (3 players are needed to start a game).")
+                self.reset_timer()
             elif status == "2":
                 self.append_text(f"The 20s countdown started now. Prepare for the start of the game.")
+                self.start_timer(duration=20)
             elif status == "3" or "4":
                 for btn in self.answer_buttons:
                     btn.config(state='disabled')
@@ -336,7 +370,7 @@ class QuizClient:
     def receive_messages(self):
         try:
             print("Rozpoczęto odbieranie wiadomości.")
-            while True:
+            while self.client_socket:
                 message = recv_string(self.client_socket).decode()
                 if not message:
                     break
@@ -349,7 +383,9 @@ class QuizClient:
             self.append_text(f"Unexpected error while receiving a message: {e}\n")
             print(f"Niespodziewany błąd: {e}")
         finally:
-            self.client_socket.close()
+            if self.client_socket:
+                self.client_socket.close()
+            self.client_socket = None
             self.append_text("You disconnected from the server.\n")
             print("Połączenie zostało zamknięte.")
 
