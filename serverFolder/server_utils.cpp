@@ -206,6 +206,10 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
     {
         response = full_message;
     }
+    else if (type == "exi")
+    {
+        response = full_message;
+    }
     else
     {
         std::cout << "unknown" << std::endl;

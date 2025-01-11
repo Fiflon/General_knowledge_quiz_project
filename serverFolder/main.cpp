@@ -197,7 +197,10 @@ int main()
                     send_message_to_all(players, response);
                     continue;
                 }
-
+                if (response.rfind("exi", 0) == 0)
+                {
+                    continue;
+                }
                 if (response == "nic|0|" && game.is_game_in_progress())
                 {
                     response = "nic|4|";

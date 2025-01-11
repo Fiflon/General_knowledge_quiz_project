@@ -107,6 +107,7 @@ class QuizClient:
         self.client_socket = None
         self.receive_thread = None
         self.timer_running = False
+        self.recv_thread_flag = False
         self.previous_players = set()
     
     
@@ -257,6 +258,7 @@ class QuizClient:
             self.append_text(f"Connected to the server {host}:{port}\n")
             print(f"Połączono z {host}:{port} jako {self.username}")
 
+            self.recv_thread_flag = True
             self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
             self.receive_thread.start()
         
@@ -273,8 +275,9 @@ class QuizClient:
     def disconnect_from_server(self):
         if self.client_socket:
             try:
-                self.client_socket.close()
                 send_string(self.client_socket, "exi|")
+                self.recv_thread_flag = False
+                self.client_socket.close()
                 self.append_text("You have disconnected from the server.\n")
                 print("Połączenie zostało zamknięte.")
             except Exception as e:
@@ -370,7 +373,7 @@ class QuizClient:
     def receive_messages(self):
         try:
             print("Rozpoczęto odbieranie wiadomości.")
-            while self.client_socket:
+            while self.recv_thread_flag:
                 message = recv_string(self.client_socket).decode()
                 if not message:
                     break
@@ -383,7 +386,7 @@ class QuizClient:
             self.append_text(f"Unexpected error while receiving a message: {e}\n")
             print(f"Niespodziewany błąd: {e}")
         finally:
-            if self.client_socket:
+            if self.recv_thread_flag:
                 self.client_socket.close()
             self.client_socket = None
             self.append_text("You disconnected from the server.\n")
