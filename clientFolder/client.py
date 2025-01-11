@@ -176,7 +176,7 @@ class QuizClient:
         for btn, answer in zip(self.answer_buttons, answers):
             btn.config(text=answer)
         
-        self.start_timer(duration=7)
+        self.start_timer(duration=15)
 
 
     def answer_selected(self, index):
@@ -275,10 +275,9 @@ class QuizClient:
     def disconnect_from_server(self):
         if self.client_socket:
             try:
-                send_string(self.client_socket, "exi|")
+                send_string(self.client_socket, f"exi|{self.username}|")
                 self.recv_thread_flag = False
                 self.client_socket.close()
-                self.append_text("You have disconnected from the server.\n")
                 print("Połączenie zostało zamknięte.")
             except Exception as e:
                 self.append_text(f"Błąd podczas rozłączania: {e}\n")
@@ -336,14 +335,14 @@ class QuizClient:
                     winner, max_points = self.get_winner()
                     if winner != "":
                         if "|" in winner:
-                            self.append_text(f"Game over! The winners are {", ".join(winner.split("|"))} with {max_points} points!")
+                            self.append_text(f"Game over! The winners are {', '.join(winner.split('|'))} with {max_points} points!")
                         else:
                             self.append_text(f"Game over! The winner is {winner} with {max_points} points!")
                     else:
                         self.append_text("Game over! No winner could be determined.")
                 else:
                     self.append_text(f"Game over! The game ended due to too few players (there have to be at least 2 players).")
-        elif message.startswith("dis|"):
+        elif message.startswith("dis|") or message.startswith("exi|"):
             disconnected_player = message.split('|')[1]
             self.append_text(f"Player {disconnected_player} disconnected.")
         elif message.startswith("que|"):
@@ -380,8 +379,9 @@ class QuizClient:
                 print(f"Otrzymana wiadomość: {message}")
                 self.parse_message(message)
         except ConnectionError as e:
-            self.append_text(f"Connection error: {e}")
-            print(f"Błąd połączenia: {e}")
+            if self.recv_thread_flag:
+                self.append_text(f"Connection error: {e}")
+                print(f"Błąd połączenia: {e}")
         except Exception as e:
             self.append_text(f"Unexpected error while receiving a message: {e}\n")
             print(f"Niespodziewany błąd: {e}")
@@ -410,8 +410,15 @@ class QuizClient:
         self.text_area.config(state='disabled')
         self.text_area.see(tk.END)
 
+    def on_closing(self):
+        self.disconnect_from_server()
+        self.root.destroy()
 
 if __name__ == "__main__":
+
+
+
     root = tk.Tk()
     app = QuizClient(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()

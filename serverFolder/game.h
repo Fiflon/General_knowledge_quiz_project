@@ -28,7 +28,7 @@ private:
     int current_question_index;
     int current_question_number;
     time_t question_start_time;
-    const time_t question_time_limit = 7;
+    const time_t question_time_limit = 15;
 };
 
 #endif // GAME_H

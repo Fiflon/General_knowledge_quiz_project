@@ -208,6 +208,7 @@ std::string handle_client_message(int client_fd, std::unordered_map<int, Player>
     }
     else if (type == "exi")
     {
+
         response = full_message;
     }
     else
@@ -240,10 +241,10 @@ bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, 
         (*active_players)--;
         perror("read");
     }
-    close(client_fd);
-    shutdown(client_fd, SHUT_RDWR);
-
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
+    shutdown(client_fd, SHUT_RDWR);
+    close(client_fd);
+
     if (players[client_fd].nickname != "" && players.erase(client_fd) != 0)
     {
         (*active_players)--;
@@ -251,6 +252,21 @@ bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, 
 
     std::cout << "Active players: " << *active_players << std::endl;
     return true;
+}
+
+int delete_player(int client_fd, std::unordered_map<int, Player> &players, int *active_players, int epoll_fd)
+{
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
+    shutdown(client_fd, SHUT_RDWR);
+    close(client_fd);
+
+    if (players[client_fd].nickname != "" && players.erase(client_fd) != 0)
+    {
+        (*active_players)--;
+    };
+
+    std::cout << "Active players: " << *active_players << std::endl;
+    return 0;
 }
 
 int reset_points(std::unordered_map<int, Player> &players)

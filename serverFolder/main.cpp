@@ -117,6 +117,7 @@ int send_message_to_all(const std::unordered_map<int, Player> &players, const st
 
         if (p.second.nickname == "")
         {
+            std::cout << "Player not active" << std::endl;
             continue;
         }
 
@@ -199,6 +200,9 @@ int main()
                 }
                 if (response.rfind("exi", 0) == 0)
                 {
+                    delete_player(events[n].data.fd, players, &active_players, epoll_fd);
+
+                    // send_message_to_all(players, response);
                     continue;
                 }
                 if (response == "nic|0|" && game.is_game_in_progress())

@@ -11,6 +11,8 @@ int create_server_socket(int port);
 int setup_epoll(int server_fd);
 
 int reset_points(std::unordered_map<int, Player> &players);
+int delete_player(int client_fd, std::unordered_map<int, Player> &players, int *active_players, int epoll_fd);
+
 void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, Player> &players);
 std::vector<std::string> split_string(const char delimiter, const std::string &input, int wordsToFind);
 
