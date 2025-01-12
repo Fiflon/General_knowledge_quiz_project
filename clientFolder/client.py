@@ -6,28 +6,34 @@ from tkinter import scrolledtext, messagebox, simpledialog, ttk
 import struct
 
 def send_string(sock, message):
-    size_of_msg = len(message)
-    print(type(size_of_msg))
+    encoded_message = message.encode('utf-8')
+    size_of_msg = len(encoded_message)
     print(f"Wysyłanie wiadomości o rozmiarze: {size_of_msg}")
     sock.sendall(struct.pack('i', size_of_msg))
-    sock.sendall(message.encode('utf-8'))
+    sock.sendall(encoded_message)
     print(f"Wiadomość wysłana: {message}")
+
+
+def recv_all(sock, bytes_count):
+    data = bytearray()
+    while len(data) < bytes_count:
+        packet = sock.recv(bytes_count - len(data))
+        if not packet:
+            app.reset_ui()
+            raise ConnectionError("The connection to the server was interrupted.")
+        data.extend(packet)
+    return data
 
 
 def recv_string(sock):
     try:
         print("Czekam na rozmiar wiadomości...")
-        size_of_msg_data = sock.recv(4)
-        if not size_of_msg_data:
-            raise ConnectionError("The connection to the server was interrupted.")
-
+        size_of_msg_data = recv_all(sock, 4)
         size_of_msg = struct.unpack('i', size_of_msg_data)[0]
         print(f"Otrzymano rozmiar wiadomości: {size_of_msg}")
-        message_data = sock.recv(size_of_msg)
-        print(f"Otrzymane dane wiadomości: {message_data}")
 
-        if len(message_data) != size_of_msg:
-            raise ValueError("Didn't receive the whole message.")
+        message_data = recv_all(sock, size_of_msg)
+        print(f"Otrzymane dane wiadomości: {message_data}")
 
         return message_data
     except ConnectionError as e:
@@ -38,8 +44,10 @@ def recv_string(sock):
 
 class QuizClient:
     def __init__(self, root):
+        self.default_title = "General Knowledge Quiz"
+
         self.root = root
-        self.root.title("General Knowledge Quiz Project")
+        self.root.title(self.default_title)
 
         tk.Label(root, text="Host:").grid(row=0, column=0, pady=5)
         self.host_entry = tk.Entry(root)
@@ -102,14 +110,26 @@ class QuizClient:
         self.rank_tree.column("Nickname", width=150)
         self.rank_tree.column("Points", width=80)
 
-        
         self.username = None
         self.client_socket = None
         self.receive_thread = None
         self.timer_running = False
+        self.timer_id = None
         self.recv_thread_flag = False
         self.previous_players = set()
     
+
+    def reset_ui(self):
+        self.root.title(self.default_title)
+        self.start_button.config(state='normal')
+        self.disconnect_button.config(state='disabled')
+        self.host_entry.config(state='normal')
+        self.port_entry.config(state='normal')
+        self.clear_ranking()
+        self.reset_timer()
+        for btn in self.answer_buttons:
+            btn.config(state='disabled')
+
     
     def is_valid_nickname(self, nickname):
         if not nickname:
@@ -144,24 +164,30 @@ class QuizClient:
         dialog.wait_window()
 
 
-    def reset_timer(self):
-        self.timer_running = False
-        self.time_progress["value"] = 0
-        self.root.update_idletasks()
-
-
     def start_timer(self, duration):
+        # if self.timer_running:
+        #     self.reset_timer()
         self.reset_timer()
         self.timer_running = True
-        step = 100 / (duration * 10)
+        self.duration = duration
+        self.progress_value = 0
+        self.increment = 100 / (duration * 1000 // 10)
+        self.update_progress()
 
-        def update_progress(current_time):
-            if current_time < duration:
-                self.time_progress["value"] += step
-                self.root.update_idletasks()
-                self.root.after(100, update_progress, current_time + 0.1)
+    def update_progress(self):
+        if self.timer_running and self.progress_value < 100:
+            self.progress_value += self.increment
+            self.time_progress["value"] = self.progress_value
+            self.timer_id = self.root.after(10, self.update_progress)
+        elif self.progress_value >= 100:
+            self.timer_running = False
 
-        update_progress(0)
+    def reset_timer(self):
+        if self.timer_id:
+            self.root.after_cancel(self.timer_id)
+        self.timer_running = False
+        self.progress_value = 0
+        self.time_progress["value"] = 0
 
 
     def display_question(self, question_number, question_text, difficulty, answers):
@@ -218,8 +244,12 @@ class QuizClient:
 
         for new_player in new_players:
             if new_player != self.username:
-                self.append_text(f"Player {new_player} is in the game! He started playing from the question {self.current_question_number or 1}.")
+                self.append_text(f"Player {new_player} is in the game!")
 
+    def clear_ranking(self):
+        for row in self.rank_tree.get_children():
+            self.rank_tree.delete(row)
+        self.previous_players = set()
     
     def get_winner(self):
         max_points = -1
@@ -278,19 +308,15 @@ class QuizClient:
                 send_string(self.client_socket, f"exi|{self.username}|")
                 self.recv_thread_flag = False
                 self.client_socket.close()
+                self.clear_ranking()
+                self.reset_timer()
                 print("Połączenie zostało zamknięte.")
             except Exception as e:
                 self.append_text(f"Błąd podczas rozłączania: {e}\n")
                 print(f"Błąd rozłączania: {e}")
             finally:
                 self.client_socket = None
-                self.start_button.config(state='normal')
-                self.disconnect_button.config(state='disabled')
-                self.host_entry.config(state='normal')
-                self.port_entry.config(state='normal')
-                for btn in self.answer_buttons:
-                    btn.config(state='disabled')
-                self.reset_timer()
+                self.reset_ui()
 
 
     def parse_message(self, message):
@@ -330,6 +356,7 @@ class QuizClient:
             elif status == "3" or "4":
                 for btn in self.answer_buttons:
                     btn.config(state='disabled')
+                self.reset_timer()
                 self.rank_frame.children["!label"].config(text="Final ranking")
                 if status == "3":
                     winner, max_points = self.get_winner()
@@ -415,9 +442,6 @@ class QuizClient:
         self.root.destroy()
 
 if __name__ == "__main__":
-
-
-
     root = tk.Tk()
     app = QuizClient(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
