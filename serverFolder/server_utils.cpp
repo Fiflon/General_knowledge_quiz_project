@@ -140,7 +140,7 @@ void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, 
         return;
     }
 
-    players[client_fd] = {client_fd, "", 0};
+    players[client_fd] = {client_fd, "", 0, (time(0) + 50)};
 }
 
 std::vector<std::string> split_string(const char delimiter, const std::string &input, int wordsToFind)
@@ -331,4 +331,33 @@ std::string get_parsed_ranking(std::unordered_map<int, Player> &players)
     }
 
     return parsed_ranking;
+}
+
+int delete_inactive_players(std::unordered_map<int, Player> &players, int *active_players, int epoll_fd)
+{
+    std::vector<int> inactive_players;
+    for (const auto &p : players)
+    {
+        if (time(0) > p.second.deadline_time)
+        {
+
+            if (p.second.nickname == "")
+            {
+                std::cout << "Player not active" << std::endl;
+                inactive_players.push_back(p.first);
+                continue;
+            }
+            std::cout << "Deleting inactive player: " << p.second.nickname << std::endl;
+            std::cout << time(0) << " > " << p.second.deadline_time << std::endl;
+
+            inactive_players.push_back(p.first);
+        }
+    }
+
+    for (const auto &p : inactive_players)
+    {
+        delete_player(p, players, active_players, epoll_fd);
+    }
+
+    return 0;
 }

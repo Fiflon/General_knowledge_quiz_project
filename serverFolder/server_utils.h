@@ -12,6 +12,7 @@ void set_nonblocking(int socket);
 
 int create_server_socket(int port);
 int setup_epoll(int server_fd);
+int delete_inactive_players(std::unordered_map<int, Player> &players, int *active_players, int epoll_fd);
 
 int reset_points(std::unordered_map<int, Player> &players);
 int delete_player(int client_fd, std::unordered_map<int, Player> &players, int *active_players, int epoll_fd);

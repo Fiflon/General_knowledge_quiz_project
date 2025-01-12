@@ -143,6 +143,8 @@ int main()
     while (true)
     {
 
+        delete_inactive_players(players, &active_players, epoll_fd);
+
         if (active_players < 3 && countdown_started)
         {
             countdown_started = false;
@@ -201,6 +203,7 @@ int main()
 
                     continue;
                 }
+
                 if (response == "nic|0|" && game.is_game_in_progress())
                 {
                     response = "nic|4|";
@@ -210,6 +213,8 @@ int main()
                     response = "nic|5|";
                 }
                 std::cout << "Response: " << response << std::endl;
+
+                players[events[n].data.fd].deadline_time = time(0) + 50;
 
                 send_string(events[n].data.fd, response);
             }

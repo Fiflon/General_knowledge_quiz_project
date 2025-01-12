@@ -8,6 +8,8 @@ struct Player
     int fd;
     std::string nickname;
     int points;
+
+    time_t deadline_time;
 };
 
 #endif
