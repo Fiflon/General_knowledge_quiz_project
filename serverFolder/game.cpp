@@ -50,11 +50,8 @@ bool Game::is_game_in_progress() const
 std::string Game::get_current_question_parsed() const
 {
     std::string parsed_question = "que|" + std::to_string(current_question_number) + "|" + questions[current_question_index].content + "|" + questions[current_question_index].ans_a + "|" + questions[current_question_index].ans_b + "|" + questions[current_question_index].ans_c + "|" + questions[current_question_index].ans_d + "|" + std::to_string(questions[current_question_index].difficulty) + "|";
-    if (current_question_index < (int)questions.size())
-    {
-        return parsed_question;
-    }
-    return "";
+
+    return parsed_question;
 }
 
 std::string Game::get_current_question_answer() const
@@ -67,7 +64,7 @@ time_t Game::get_time_left() const
     return question_time_limit - (time(0) - question_start_time);
 }
 
-int Game::get_current_question_number()
+int Game::get_current_question_number() const
 {
     return current_question_number;
 }

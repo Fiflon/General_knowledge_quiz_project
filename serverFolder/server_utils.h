@@ -6,6 +6,9 @@
 
 #include "player.h"
 #include "game.h"
+void set_recv_timeout(int socket, int seconds, int microseconds);
+void set_blocking(int socket);
+void set_nonblocking(int socket);
 
 int create_server_socket(int port);
 int setup_epoll(int server_fd);
