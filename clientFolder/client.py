@@ -20,14 +20,13 @@ def recv_all(sock, bytes_count):
         packet = sock.recv(bytes_count - len(data))
         if not packet:
             app.reset_ui()
-            raise ConnectionError("The connection to the server was interrupted.")
+            raise ConnectionError("The server closed the connection.")
         data.extend(packet)
     return data
 
 
 def recv_string(sock):
     try:
-        print("Czekam na rozmiar wiadomości...")
         size_of_msg_data = recv_all(sock, 4)
         size_of_msg = struct.unpack('i', size_of_msg_data)[0]
         print(f"Otrzymano rozmiar wiadomości: {size_of_msg}")
@@ -165,14 +164,13 @@ class QuizClient:
 
 
     def start_timer(self, duration):
-        # if self.timer_running:
-        #     self.reset_timer()
         self.reset_timer()
         self.timer_running = True
         self.duration = duration
         self.progress_value = 0
         self.increment = 100 / (duration * 1000 // 10)
         self.update_progress()
+
 
     def update_progress(self):
         if self.timer_running and self.progress_value < 100:
@@ -181,6 +179,7 @@ class QuizClient:
             self.timer_id = self.root.after(10, self.update_progress)
         elif self.progress_value >= 100:
             self.timer_running = False
+
 
     def reset_timer(self):
         if self.timer_id:
@@ -240,11 +239,17 @@ class QuizClient:
             current_players.add(nickname)
 
         new_players = current_players - self.previous_players
-        self.previous_players = current_players
-
         for new_player in new_players:
             if new_player != self.username:
                 self.append_text(f"Player {new_player} is in the game!")
+
+        removed_players = self.previous_players - current_players
+        for removed_player in removed_players:
+            if removed_player != self.username:
+                self.append_text(f"Player {removed_player} has left the game!")           
+        
+        self.previous_players = current_players
+
 
     def clear_ranking(self):
         for row in self.rank_tree.get_children():
@@ -296,7 +301,6 @@ class QuizClient:
             error_message = "Failed to connect to the server. The server is offline or unreachable."
             self.append_text(f"{error_message}\n")
             messagebox.showerror("Connection Error", error_message)
-            print(error_message)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to connect to the server: {e}")
@@ -312,18 +316,16 @@ class QuizClient:
                 self.reset_timer()
                 print("Połączenie zostało zamknięte.")
             except Exception as e:
-                self.append_text(f"Błąd podczas rozłączania: {e}\n")
-                print(f"Błąd rozłączania: {e}")
+                self.append_text(f"Error while disconnecting: {e}\n")
             finally:
                 self.client_socket = None
                 self.reset_ui()
 
 
     def parse_message(self, message):
-        print(f"Parsujemy wiadomosc: {message}")
+        print(f"Pasowana wiadomosc: {message}")
         if message.startswith("nic|"):
             status = message.split('|')[1]
-            print(f"Status: {status}")
             if status == "0" or status == "4" or status == "5":
                 self.append_text(f"Welcome to the General Knowledge Quiz!")
                 self.append_text(f"Username set: {self.username}")
@@ -378,7 +380,6 @@ class QuizClient:
             question_text = parts[2]
             answers = parts[3:7]
             difficulty = parts[7]
-            print(f"{question_number}|{question_text}|{answers}|{difficulty}")
             self.display_question(question_number, question_text, difficulty, answers)
         elif message.startswith("ans|"):
             status = message.split('|')[1]
@@ -398,37 +399,21 @@ class QuizClient:
 
     def receive_messages(self):
         try:
-            print("Rozpoczęto odbieranie wiadomości.")
             while self.recv_thread_flag:
                 message = recv_string(self.client_socket).decode()
                 if not message:
                     break
-                print(f"Otrzymana wiadomość: {message}")
                 self.parse_message(message)
         except ConnectionError as e:
             if self.recv_thread_flag:
                 self.append_text(f"Connection error: {e}")
-                print(f"Błąd połączenia: {e}")
         except Exception as e:
             self.append_text(f"Unexpected error while receiving a message: {e}\n")
-            print(f"Niespodziewany błąd: {e}")
         finally:
             if self.recv_thread_flag:
                 self.client_socket.close()
             self.client_socket = None
             self.append_text("You disconnected from the server.\n")
-            print("Połączenie zostało zamknięte.")
-
-
-    def send_message(self):
-        message = self.message_entry.get()
-        if message:
-            try:
-                send_string(self.client_socket, message)
-                self.append_text(f"{self.username}: {message}\n")
-                self.message_entry.delete(0, tk.END)
-            except Exception as e:
-                self.append_text(f"Błąd podczas wysyłania wiadomości: {e}\n")
 
 
     def append_text(self, text):
@@ -436,6 +421,7 @@ class QuizClient:
         self.text_area.insert(tk.END, text + '\n')
         self.text_area.config(state='disabled')
         self.text_area.see(tk.END)
+
 
     def on_closing(self):
         self.disconnect_from_server()
