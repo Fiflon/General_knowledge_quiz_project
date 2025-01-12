@@ -25,8 +25,6 @@ time_t start_time = 0;
 
 const int countdown_time = 20;
 
-bool new_client_connected = false;
-
 Game game;
 
 int send_string(int socket, const std::string &message)
@@ -178,7 +176,6 @@ int main()
             if (events[n].data.fd == server_fd)
             {
                 handle_new_connection(epoll_fd, server_fd, players);
-                new_client_connected = true;
             }
             else
             {
@@ -193,16 +190,15 @@ int main()
 
                 std::string response = handle_client_message(events[n].data.fd, players, &active_players, recived_message, game);
 
-                if (response.rfind("dis", 0) == 0)
+                if (response.substr(0, 3) == "dis")
                 {
                     send_message_to_all(players, response);
                     continue;
                 }
-                if (response.rfind("exi", 0) == 0)
+                if (response.substr(0, 3) == "exi")
                 {
                     delete_player(events[n].data.fd, players, &active_players, epoll_fd);
 
-                    // send_message_to_all(players, response);
                     continue;
                 }
                 if (response == "nic|0|" && game.is_game_in_progress())
