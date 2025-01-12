@@ -166,18 +166,19 @@ Question questions[] = {
      'd',
      3}};
 
+std::random_device rd;
+std::mt19937 g(rd());
+
 std::vector<Question> pick_questions()
 {
     std::vector<Question> selected_questions;
     std::unordered_set<int> selected_indices;
-    std::random_device rd;
-    std::mt19937 g(rd());
     std::uniform_int_distribution<> dis(0, 19);
 
-    while (selected_indices.size() < 2)
+    while (selected_indices.size() < 10) // 10 questions
     {
         int index = dis(g);
-        if (selected_indices.find(index) == selected_indices.end())
+        if (selected_indices.count(index) == 0)
         {
             selected_indices.insert(index);
             selected_questions.push_back(questions[index]);

@@ -13,18 +13,47 @@
 #include <string>
 #include <vector>
 
-void set_nonblocking(int sockfd)
-{ // na 99 procent nie bedziemy uzywac
-    int opts = fcntl(sockfd, F_GETFL);
+void set_recv_timeout(int socket, int seconds, int microseconds)
+{
+    struct timeval timeout;
+    timeout.tv_sec = seconds;
+    timeout.tv_usec = microseconds;
+
+    if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("setsockopt SO_RCVTIMEO");
+    }
+}
+
+void set_nonblocking(int socket)
+{
+    int opts = fcntl(socket, F_GETFL);
     if (opts < 0)
     {
         perror("fcntl(F_GETFL)");
         exit(EXIT_FAILURE);
     }
     opts |= O_NONBLOCK;
-    if (fcntl(sockfd, F_SETFL, opts) < 0)
+    if (fcntl(socket, F_SETFL, opts) < 0)
     {
         perror("fcntl(F_SETFL)");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void set_blocking(int socket)
+{
+    int flags = fcntl(socket, F_GETFL, 0);
+    if (flags == -1)
+    {
+        perror("fcntl F_GETFL");
+        exit(EXIT_FAILURE);
+    }
+
+    flags &= ~O_NONBLOCK;
+    if (fcntl(socket, F_SETFL, flags) == -1)
+    {
+        perror("fcntl F_SETFL");
         exit(EXIT_FAILURE);
     }
 }
@@ -98,6 +127,8 @@ void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, 
         perror("accept");
         return;
     }
+
+    set_recv_timeout(client_fd, 1, 0);
 
     struct epoll_event ev = {};
     ev.events = EPOLLIN;
@@ -238,7 +269,6 @@ bool client_disconnected_or_error(int n, int client_fd, std::unordered_map<int, 
     }
     else
     {
-        (*active_players)--;
         perror("read");
     }
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);

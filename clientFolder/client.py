@@ -202,7 +202,7 @@ class QuizClient:
         for btn, answer in zip(self.answer_buttons, answers):
             btn.config(text=answer)
         
-        self.start_timer(duration=15)
+        self.start_timer(duration=8)
 
 
     def answer_selected(self, index):
