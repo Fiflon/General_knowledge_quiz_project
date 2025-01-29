@@ -142,8 +142,10 @@ int main()
 
     while (true)
     {
-
-        delete_inactive_players(players, &active_players, epoll_fd);
+        if (game.get_current_question_number() > 1)
+        {
+            delete_inactive_players(players, &active_players, epoll_fd);
+        }
 
         if (active_players < 3 && countdown_started)
         {
@@ -214,7 +216,7 @@ int main()
                 }
                 std::cout << "Response: " << response << std::endl;
 
-                players[events[n].data.fd].deadline_time = time(0) + 50;
+                players[events[n].data.fd].deadline_time = time(0) + 120;
 
                 send_string(events[n].data.fd, response);
             }

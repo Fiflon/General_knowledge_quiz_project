@@ -140,7 +140,7 @@ void handle_new_connection(int epoll_fd, int server_fd, std::unordered_map<int, 
         return;
     }
 
-    players[client_fd] = {client_fd, "", 0, (time(0) + 50)};
+    players[client_fd] = {client_fd, "", 0, (time(0) + 120)};
 }
 
 std::vector<std::string> split_string(const char delimiter, const std::string &input, int wordsToFind)
